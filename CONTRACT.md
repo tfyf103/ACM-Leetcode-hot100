@@ -8,6 +8,14 @@ All authored descriptions are original concise Chinese ACM adaptations, not copi
 Fields: id (int), title, slug, difficulty (Easy/Medium/Hard), category (Chinese), description (plain text), input_format, output_format, constraints (list[str]), examples (list[{input,output,explanation}]), tests (list[{input,output}]), starter (standalone Python solve skeleton), solution (complete executable Python stdin/stdout program), explanation (Chinese algorithm and complexity), compare (default tokens; allowed tokens,float,unordered_lines,unordered_tokens).
 Minimum 5 meaningful cases per problem including examples + edges; reference solution must pass all. Avoid import-time subprocess execution. Fixed expected test outputs preferred; do not derive expectations from reference implementation at runtime. No JSON stdin: use ordinary ACM whitespace/line input. For nonunique answers implement CHECKERS instead of imposing arbitrary algorithm. Plain text output not HTML. Tree serialization: line with level-order values and null, first line token count when used; define precisely. Input consistency within each problem is essential.
 
+The shipped catalog combines `part_*.py` with trusted fixed `enrichment.json`
+through `apply_enrichment`. Both the application and verifier must apply this
+same enrichment. At least 20 distinct inputs and 3 explained public examples
+per problem; #22 and #51 instead cover every legal n (8 and 9 values). Public
+field `clarifications: list[str]` explains exact rules and boundary behavior.
+No reference solution is used to generate added expectations. The developer
+generator uses independent small-input oracles and is never invoked at startup.
+
 Optional per-problem fields: output_limit (positive int bytes, at most 32 MiB; default 4 MiB) and case_timeout (finite positive seconds, at most 35; default 5). Both custom runs and submissions must honor these fields. Overall submission timeout remains 35 seconds. Problem #15 uses 32 MiB / 10 seconds for its quadratic number of valid triples. HTTP stdin limit is 4 MiB and normal request body limit is 8 MiB.
 
 ## HTTP API

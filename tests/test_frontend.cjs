@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const assert = require('node:assert/strict');
 const sourcePath = process.argv[2] || require('node:path').join(__dirname, '../static/app.js');
-const source = fs.readFileSync(sourcePath, 'utf8').replace('  bootstrap();', '  globalThis.testApi={state,openProblem,renderCases,loadSolution,loadSubmissions,codeChanged,flushSave,execute};');
+const source = fs.readFileSync(sourcePath, 'utf8').replace('  bootstrap();', '  globalThis.testApi={state,openProblem,renderDescription,renderCases,loadSolution,loadSubmissions,codeChanged,flushSave,execute};');
 
 function deferred() { let resolve,reject; const promise=new Promise((a,b)=>{resolve=a;reject=b;});return {promise,resolve,reject}; }
 function setup() {
@@ -28,6 +28,13 @@ function setup() {
   return {api:context.testApi,nodes,get,calls,stored,problem,setHandler:h=>handler=h};
 }
 const tests=[];const test=(name,fn)=>tests.push([name,fn]);
+
+test('enhanced descriptions render the full rules list and explained examples',()=>{
+  const {api,get,problem}=setup();const p=Object.assign(problem(1),{description:'Detailed statement',clarifications:['Distinct indexes','Repeated values are allowed','Any valid answer'],examples:[{input:'2 0\n0 0\n',output:'0 1\n',explanation:'Two different positions'}]});
+  api.renderDescription(p);const view=get('description-view');const rules=view.querySelectorAll('.constraints')[0];
+  assert.deepEqual(rules.children.map(node=>node.textContent),p.clarifications);
+  assert.ok(view.querySelectorAll('.example-explanation').some(node=>node.textContent.includes('Two different positions')));
+});
 
 test('custom input survives switching to a sample and another problem',async()=>{
   const {api,get}=setup();api.renderCases();get('stdin').value='custom\n123';get('stdin').oninput();get('case-buttons').children[0].onclick();assert.equal(get('stdin').value,'sample 1');get('case-buttons').children.at(-1).onclick();assert.equal(get('stdin').value,'custom\n123');

@@ -6,6 +6,7 @@
   <meta name="theme-color" content="#f0f0f0">
   <title>ACM Hot 100 · Python 练习工作台</title>
   <link rel="stylesheet" href="/static/vendor/codemirror.css">
+  <link rel="stylesheet" href="/static/vendor/show-hint.css">
   <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
@@ -45,7 +46,7 @@
     <section class="right-column" aria-label="编程与测试">
       <section class="panel editor-panel">
         <div class="panel-header"><span class="panel-label"><span data-icon="code"></span>代码</span><span id="save-status" class="save-status" role="status">已保存</span></div>
-        <div class="editor-toolbar"><span class="language-label">Python3 <span class="language-chevron">⌄</span></span><span class="editor-mode">ACM 模式</span><div class="editor-actions"><button id="font-decrease" class="text-icon-button" title="减小字号" aria-label="减小字号">A−</button><button id="font-increase" class="text-icon-button" title="增大字号" aria-label="增大字号">A+</button><button id="reset-code" class="icon-button small" title="恢复初始代码" aria-label="恢复初始代码"><span data-icon="reset"></span></button><button id="download-code" class="icon-button small" title="下载 Python 文件" aria-label="下载 Python 文件"><span data-icon="download"></span></button></div></div>
+        <div class="editor-toolbar"><span class="language-label">Python3 <span class="language-chevron">⌄</span></span><span class="editor-mode">ACM 模式</span><div class="editor-actions"><button id="indent-guides" class="text-icon-button editor-option" aria-pressed="true" title="显示缩进线和当前行" aria-label="显示缩进线">缩进线</button><button id="completion" class="text-icon-button editor-option" aria-pressed="true" title="输入变量首字母提示；Ctrl+Space 手动补全" aria-label="自动补全">补全</button><button id="font-decrease" class="text-icon-button" title="减小字号" aria-label="减小字号">A−</button><button id="font-increase" class="text-icon-button" title="增大字号" aria-label="增大字号">A+</button><button id="reset-code" class="icon-button small" title="恢复初始代码" aria-label="恢复初始代码"><span data-icon="reset"></span></button><button id="download-code" class="icon-button small" title="下载 Python 文件" aria-label="下载 Python 文件"><span data-icon="download"></span></button></div></div>
         <div id="editor-container" class="editor-container"><textarea id="code" aria-label="Python3 代码编辑器" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off"></textarea></div>
         <div class="editor-footer"><span id="cursor-position">Ln 1, Col 1</span><span>UTF-8<span class="footer-dot">·</span>4 空格<span class="footer-dot">·</span><span id="python-version">Python 3</span></span></div>
       </section>
@@ -75,6 +76,8 @@
   <script src="/static/vendor/python.js"></script>
   <script src="/static/vendor/closebrackets.js"></script>
   <script src="/static/vendor/matchbrackets.js"></script>
+  <script src="/static/vendor/show-hint.js"></script>
+  <script src="/static/editor-support.js"></script>
   <script src="/static/app.js"></script>
 </body>
 </html>

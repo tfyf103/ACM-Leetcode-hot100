@@ -7,8 +7,14 @@ files from [components/codemirror](https://github.com/components/codemirror),
 an offline distribution of [CodeMirror](https://github.com/codemirror/codemirror5).
 Copyright Marijn Haverbeke and other contributors; MIT license included in
 `static/vendor/LICENSE`. Only the editor core, stylesheet, Python mode,
-close-brackets and match-brackets addons are bundled. No dependency download
+close-brackets, match-brackets and show-hint addons are bundled. No dependency download
 is required when starting this application.
+
+`show-hint.js` and `show-hint.css` come from the same CodeMirror 5.22.0 release
+(https://github.com/codemirror/codemirror5/tree/5.22.0/addon/hint). Their MIT
+license is preserved. The indentation guides and Python lexical candidate
+provider in `static/editor-support.js` are authored for this project, using the
+[CodeMirror 5 addon API](https://codemirror.net/5/doc/manual.html#addon_show-hint).
 
 ## Research references
 

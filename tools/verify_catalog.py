@@ -117,6 +117,13 @@ def load_parts():
         except Exception as exc:
             errors.append("%s: import failed: %s: %s" %
                           (path.name, type(exc).__name__, exc))
+    try:
+        spec = importlib.util.spec_from_file_location("verify_enrichment", ROOT / "catalog/enrichment.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        module.apply_enrichment(problems)
+    except Exception as exc:
+        errors.append("catalog enrichment failed: " + repr(exc))
     return problems, checkers, owners, errors
 
 
@@ -150,7 +157,8 @@ def schema_errors(problem):
     if not isinstance(constraints, list) or not constraints or not all(
             isinstance(value, str) and value.strip() for value in constraints):
         errors.append("constraints must be a nonempty list of nonempty strings")
-    for key, minimum in (("examples", 1), ("tests", 5)):
+    minimum_tests = {22: 8, 51: 9}.get(pid, 20)
+    for key, minimum in (("examples", 2), ("tests", minimum_tests)):
         cases = problem.get(key)
         if not isinstance(cases, list) or len(cases) < minimum:
             errors.append("%s must have at least %d entries" % (key, minimum))
@@ -167,8 +175,8 @@ def schema_errors(problem):
                 errors.append("examples[%d].explanation must be nonempty" % i)
         if key == "tests" and all(isinstance(case, dict) and
                                    isinstance(case.get("input"), str) for case in cases):
-            if len({case["input"] for case in cases}) < 5:
-                errors.append("tests must include at least five distinct inputs")
+            if len({case["input"] for case in cases}) < minimum_tests:
+                errors.append("tests must include at least %d distinct inputs" % minimum_tests)
     for key in ("starter", "solution"):
         try:
             compile(problem.get(key, ""), "#%s %s" % (pid, key), "exec")

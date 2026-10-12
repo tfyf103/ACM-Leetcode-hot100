@@ -30,6 +30,9 @@ def order_key(problem):
     return (_ORDER_INDEX.get(problem["id"], len(HOT100_ORDER)), problem["id"])
 
 
+from .enrichment import apply_enrichment
+
+apply_enrichment(PROBLEMS)
 PROBLEMS.sort(key=order_key)
 BY_ID = {problem["id"]: problem for problem in PROBLEMS}
 if len(BY_ID) != len(PROBLEMS):
@@ -38,7 +41,7 @@ if len(BY_ID) != len(PROBLEMS):
 PUBLIC_FIELDS = (
     "id", "title", "slug", "difficulty", "category", "description",
     "input_format", "output_format", "constraints", "examples", "starter",
-    "explanation", "compare",
+    "explanation", "compare", "clarifications",
 )
 
 

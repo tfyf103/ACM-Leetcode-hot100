@@ -35,7 +35,7 @@
   const difficulty = {Easy:'简单', Medium:'中等', Hard:'困难'};
   const statusText = {'Accepted':'通过', 'Wrong Answer':'答案错误', 'Runtime Error':'运行出错', 'Time Limit Exceeded':'超出时间限制', 'Output Limit Exceeded':'超出输出限制', 'Finished':'运行完成'};
   const state = {problems:[], progress:{}, cache:new Map(), results:new Map(), inputs:new Map(), token:'', current:null, targetId:null, tab:'description', testTab:'testcase', navigation:0, loading:true, busy:false, importing:false, backupBusy:false, reloadRequired:false, revisions:{}, saved:{}, errors:new Set(), timers:new Map(), saves:Promise.resolve(), fontSize:14};
-  let cm = null, suppressEditor = false, toastTimeout, drawerFocus = null, submissionRequest = 0;
+  let cm = null, editorSupport = null, suppressEditor = false, toastTimeout, drawerFocus = null, submissionRequest = 0;
   const store = {get(key, fallback=null) {try {const val=localStorage.getItem('acm-hot100:'+key); return val===null?fallback:JSON.parse(val);}catch (_) {return fallback;}}, set(key,val) {try{localStorage.setItem('acm-hot100:'+key,JSON.stringify(val));}catch (_) {}}};
   let unsavedDrafts = store.get('unsaved-drafts', {});
   if (!unsavedDrafts || typeof unsavedDrafts !== 'object' || Array.isArray(unsavedDrafts)) unsavedDrafts = {};
@@ -91,11 +91,19 @@
   if(window.CodeMirror){
     cm=CodeMirror.fromTextArea($('code'),{mode:'python',lineNumbers:true,indentUnit:4,tabSize:4,indentWithTabs:false,lineWrapping:false,matchBrackets:true,autoCloseBrackets:true,viewportMargin:20,extraKeys:{Tab(cm){if(cm.somethingSelected())cm.indentSelection('add');else cm.replaceSelection(' '.repeat(4-(cm.getCursor().ch%4)),'end');},'Shift-Tab':cm=>cm.indentSelection('subtract'),'Ctrl-Enter':()=>execute(false),'Shift-Ctrl-Enter':()=>execute(true),'Cmd-Enter':()=>execute(false),'Shift-Cmd-Enter':()=>execute(true)}});
     cm.on('change',codeChanged);cm.on('cursorActivity',updateCursor);
+    if(window.ACMEditor)editorSupport=window.ACMEditor.install(cm,window.CodeMirror,{guides:store.get('indent-guides',true),completion:store.get('completion',true)});
   } else {
     $('code').addEventListener('input',codeChanged);['click','keyup','select'].forEach(e=>$('code').addEventListener(e,updateCursor));
     $('code').addEventListener('keydown',e=>{if(e.key==='Tab'){e.preventDefault();const t=$('code'),start=t.selectionStart,end=t.selectionEnd;t.setRangeText('    ',start,end,'end');codeChanged();updateCursor();}});
   }
   function setEditorEnabled(enabled){enabled=enabled&&!state.importing&&!state.reloadRequired;if(cm)cm.setOption('readOnly',!enabled);$('code').disabled=!enabled;$('notes').disabled=!enabled;$('stdin').disabled=!enabled;['reset-code','download-code','favorite'].forEach(id=>$(id).disabled=!enabled);updateExecutionButtons();}
+  function editorOptions(){
+    const guides=store.get('indent-guides',true),completion=store.get('completion',true);
+    [['indent-guides',guides],['completion',completion]].forEach(([id,value])=>{const button=$(id);button.disabled=!editorSupport;button.setAttribute('aria-pressed',String(value));button.classList.toggle('enabled',value);});
+    if(editorSupport)editorSupport.setOptions({guides,completion});
+  }
+  ['indent-guides','completion'].forEach(id=>$(id).onclick=()=>{store.set(id,!store.get(id,true));editorOptions();});
+  editorOptions();
   function updateExecutionButtons(){['run','submit'].forEach(id=>$(id).disabled=state.busy||state.backupBusy||state.loading||state.reloadRequired||!state.current);}
   setEditorEnabled(false);
 
@@ -105,6 +113,7 @@
     if(isSolved(progress(problem.id))){const badge=el('span','solved-badge');badge.append(document.createTextNode('已解答'),icon('check'));titleRow.append(badge);}view.append(titleRow);
     const tags=el('div','problem-tags');tags.append(el('span','tag difficulty-'+problem.difficulty,difficulty[problem.difficulty]||problem.difficulty),el('span','tag',problem.category),el('span','tag acm-tag','ACM 模式'));view.append(tags);
     view.append(el('p','description-text',problem.description));
+    if(problem.clarifications?.length){const section=el('section','problem-section clarification-section');section.append(el('h3','','规则与边界'));const list=el('ul','constraints');problem.clarifications.forEach(rule=>list.append(el('li','',rule)));section.append(list);view.append(section);}
     const addSection=(title,text)=>{const section=el('section','problem-section');section.append(el('h3','',title),el('p','format-text',text));view.append(section);};
     addSection('输入格式',problem.input_format);addSection('输出格式',problem.output_format);
     (problem.examples||[]).forEach((example,index)=>{
