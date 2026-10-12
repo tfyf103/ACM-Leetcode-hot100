@@ -176,6 +176,15 @@ class HttpTests(unittest.TestCase):
         _, _, solution = self.request("GET", "/api/problems/1/solution")
         self.assertEqual(solution["solution"], SOLUTION)
 
+    def test_solution_exposes_structured_tutorial_without_private_cases(self):
+        tutorial = catalog.BY_ID[1]['tutorial']
+        with patch.dict(PROBLEM, {'tutorial': tutorial}):
+            status, _, solution = self.request('GET', '/api/problems/1/solution')
+        self.assertEqual(status, 200)
+        self.assertEqual(solution['tutorial'], tutorial)
+        self.assertEqual(solution['solution'], SOLUTION)
+        self.assertNotIn('tests', solution)
+
     def test_host_origin_and_token(self):
         for headers in ({"Host": "evil.example"}, {"Origin": "https://evil.example"},
                         {"Origin": "null"}, {"Sec-Fetch-Site": "cross-site"}):

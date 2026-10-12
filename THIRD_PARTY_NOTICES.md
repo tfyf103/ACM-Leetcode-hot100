@@ -18,6 +18,16 @@ provider in `static/editor-support.js` are authored for this project, using the
 
 ## Research references
 
+The detailed Chinese tutorials and optimized Python programs are newly authored
+for this project. These references were used to check algorithm concepts and
+library behavior, not to copy their explanations or implementations:
+
+- [Manacher's algorithm](https://cp-algorithms.com/string/manacher.html): mirror radii and the linear-time boundary argument.
+- [Floyd cycle detection](https://cp-algorithms.com/others/tortoise_and_hare.html): meeting point and cycle entry reasoning.
+- [Longest increasing subsequence](https://cp-algorithms.com/dynamic_programming/longest_increasing_subsequence.html): minimum-tail invariant and binary search.
+- [Python 3.13 heapq](https://docs.python.org/3.13/library/heapq.html) and [bisect](https://docs.python.org/3.13/library/bisect.html): min-heaps, insertion/search behavior and costs.
+- [UC San Diego notes on Lagrange's four-square theorem](https://mathweb.ucsd.edu/~ssam/notes/lagrange-4sq.pdf) and [Archive of Formal Proofs: Three Squares Theorem](https://isa-afp.org/entries/Three_Squares.html): the four-square upper bound and Legendre's three-square exclusion used by #279.
+
 - [LeetCode official Top 100 Liked study plan](https://leetcode.cn/studyplan/top-100-liked/): problem identifiers, names, categories and difficulty, checked on 2026-10-12. This uses the current 17-category study plan rather than the older Hot 100 list.
 - [Python_LeetCode_Hot100](https://github.com/hymreire/Python_LeetCode_Hot100): cross-check of problem identifiers.
 - [cojudge](https://github.com/cojudge/cojudge) (MIT): offline practice workflow, problem-specific checking and saved local progress.

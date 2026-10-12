@@ -402,7 +402,7 @@ class Handler(BaseHTTPRequestHandler):
             if len(parts) == 3:
                 return self.respond(catalog.public_problem(problem))
             if parts[3] == "solution":
-                return self.respond({key: problem[key] for key in ("solution", "explanation")})
+                return self.respond({key: problem[key] for key in ("solution", "explanation", "tutorial") if key in problem})
             if parts[3] == "submissions":
                 return self.respond({"submissions": self.app.store.submissions(problem["id"])})
         asset = self.app.assets.get(path)

@@ -29,6 +29,20 @@ function setup() {
 }
 const tests=[];const test=(name,fn)=>tests.push([name,fn]);
 
+test('structured tutorials render headings and plain text without replacing the draft',async()=>{
+  const {api,get,setHandler}=setup();const sections=Array.from({length:8},(_,i)=>({title:'Step '+i,text:'<b>literal</b>\nExplanation '+i}));
+  setHandler(()=>({solution:'print(1)',explanation:'legacy explanation',tutorial:{approach:'Hash table',sections}}));
+  await api.loadSolution(1);const blocks=get('solution-view').querySelectorAll('.tutorial-section');
+  assert.equal(blocks.length,8);assert.deepEqual(blocks.map(b=>b.children[0].textContent),sections.map(s=>s.title));
+  assert.equal(blocks[0].children[1].textContent,sections[0].text);assert.equal(get('code').value,'old code');
+  assert.equal(get('solution-view').querySelectorAll('.solution-code')[0].textContent,'print(1)');
+});
+
+test('older solution payloads still display the flat explanation',async()=>{
+  const {api,get,setHandler}=setup();setHandler(()=>({solution:'legacy code',explanation:'legacy explanation'}));
+  await api.loadSolution(1);assert.equal(get('solution-view').querySelectorAll('.solution-explanation')[0].textContent,'legacy explanation');
+});
+
 test('enhanced descriptions render the full rules list and explained examples',()=>{
   const {api,get,problem}=setup();const p=Object.assign(problem(1),{description:'Detailed statement',clarifications:['Distinct indexes','Repeated values are allowed','Any valid answer'],examples:[{input:'2 0\n0 0\n',output:'0 1\n',explanation:'Two different positions'}]});
   api.renderDescription(p);const view=get('description-view');const rules=view.querySelectorAll('.constraints')[0];

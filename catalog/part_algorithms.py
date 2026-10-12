@@ -812,7 +812,8 @@ _add(152, "乘积最大子数组", "maximum-product-subarray", "Medium", "动态
     n = int(input())
     nums = list(map(int, input().split()))
     largest = smallest = answer = nums[0]
-    for value in nums[1:]:
+    for index in range(1, n):
+        value = nums[index]
         a, b = largest * value, smallest * value
         largest = max(value, a, b)
         smallest = min(value, a, b)

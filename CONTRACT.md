@@ -16,12 +16,20 @@ field `clarifications: list[str]` explains exact rules and boundary behavior.
 No reference solution is used to generate added expectations. The developer
 generator uses independent small-input oracles and is never invoked at startup.
 
+The same enrichment loads `tutorials.json` (exactly all 100 IDs) and
+`optimal_solutions.json` (a subset of IDs). Each tutorial is
+`{approach: str, sections: [{title: str, text: str}]}` with eight authored
+sections covering derivation, correctness, trace, time, space and tradeoffs.
+The flat `explanation` is derived from these sections for compatibility.
+Optimized programs replace `solution` before either runtime or verifier uses it.
+Tutorial text is rendered as plain text with semantic headings, never as HTML.
+
 Optional per-problem fields: output_limit (positive int bytes, at most 32 MiB; default 4 MiB) and case_timeout (finite positive seconds, at most 35; default 5). Both custom runs and submissions must honor these fields. Overall submission timeout remains 35 seconds. Problem #15 uses 32 MiB / 10 seconds for its quadratic number of valid triples. HTTP stdin limit is 4 MiB and normal request body limit is 8 MiB.
 
 ## HTTP API
 GET /api/bootstrap -> {problems:[summary objects {id,title,slug,difficulty,category,test_count}], progress:{string_id:{status,code,notes,favorite,updated_at}}, token:string, python_version:string}
 GET /api/problems/{id} -> all public problem fields (excludes tests and solution; includes test_count)
-GET /api/problems/{id}/solution -> {solution,explanation}
+GET /api/problems/{id}/solution -> {solution,explanation,tutorial?}; tutorial is optional for custom catalogs
 GET /api/problems/{id}/submissions -> {submissions:[{id,problem_id,status,passed,total,elapsed_ms,created_at,code}]}
 POST /api/progress {problem_id,code?,notes?,favorite?} -> {ok:true}. Preserve fields not present. Header X-Local-Token from bootstrap for all POST requests.
 POST /api/run {problem_id,code,stdin} -> {status:Finished/Runtime Error/Time Limit Exceeded/Output Limit Exceeded,stdout,stderr,elapsed_ms}; no marking solved.

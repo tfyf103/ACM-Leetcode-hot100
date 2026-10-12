@@ -162,7 +162,12 @@
   async function loadSolution(id){
     $('solution-view').replaceChildren(loading('正在加载题解…'));
     try{const data=await api('/api/problems/'+id+'/solution');if(state.current?.id!==id||state.loading)return;
-      const view=$('solution-view');view.replaceChildren();const head=el('div','section-heading');head.append(el('h2','','参考题解'),el('span','muted','Python 3 · ACM'));view.append(head,el('div','solution-explanation',data.explanation));
+      const view=$('solution-view');view.replaceChildren();const head=el('div','section-heading');head.append(el('h2','','参考题解'),el('span','muted','Python 3 · ACM'));view.append(head);
+      if(data.tutorial?.sections?.length){
+        view.append(el('p','tutorial-approach',data.tutorial.approach),el('p','tutorial-note','建议先读推导并手算例子，再看完整代码。复杂度按本题定义计算，输入、输出和算法辅助空间分别说明。'));
+        data.tutorial.sections.forEach(section=>{const block=el('section','tutorial-section');block.append(el('h3','',section.title),el('p','tutorial-text',section.text));view.append(block);});
+      }else view.append(el('div','solution-explanation',data.explanation));
+      view.append(el('h3','tutorial-code-heading','完整 Python ACM 代码'));
       const code=el('pre','solution-code',data.solution);view.append(code);const actions=el('div','solution-actions');const copy=el('button','secondary-button');copy.append(icon('copy'),document.createTextNode('复制代码'));copy.onclick=()=>copyText(data.solution);
       const apply=el('button','secondary-button','放入编辑器');apply.onclick=()=>{if(!canEdit(id))return;if(!confirm('用参考解法替换当前代码？当前代码将被覆盖。'))return;setCode(data.solution);codeChanged();toast('参考解法已放入编辑器');};actions.append(copy,apply);view.append(actions);
     }catch(err){if(state.current?.id===id)$('solution-view').replaceChildren(errorView(err,()=>loadSolution(id)));}
