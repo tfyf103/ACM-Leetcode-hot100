@@ -34,7 +34,7 @@
   document.querySelectorAll('[data-icon]').forEach((node) => { node.innerHTML = svg(node.dataset.icon); });
   const difficulty = {Easy:'简单', Medium:'中等', Hard:'困难'};
   const statusText = {'Accepted':'通过', 'Wrong Answer':'答案错误', 'Runtime Error':'运行出错', 'Time Limit Exceeded':'超出时间限制', 'Output Limit Exceeded':'超出输出限制', 'Finished':'运行完成'};
-  const state = {problems:[], progress:{}, cache:new Map(), results:new Map(), inputs:new Map(), token:'', current:null, targetId:null, tab:'description', testTab:'testcase', navigation:0, loading:true, busy:false, revisions:{}, saved:{}, errors:new Set(), timers:new Map(), saves:Promise.resolve(), fontSize:14};
+  const state = {problems:[], progress:{}, cache:new Map(), results:new Map(), inputs:new Map(), token:'', current:null, targetId:null, tab:'description', testTab:'testcase', navigation:0, loading:true, busy:false, importing:false, backupBusy:false, reloadRequired:false, revisions:{}, saved:{}, errors:new Set(), timers:new Map(), saves:Promise.resolve(), fontSize:14};
   let cm = null, suppressEditor = false, toastTimeout, drawerFocus = null, submissionRequest = 0;
   const store = {get(key, fallback=null) {try {const val=localStorage.getItem('acm-hot100:'+key); return val===null?fallback:JSON.parse(val);}catch (_) {return fallback;}}, set(key,val) {try{localStorage.setItem('acm-hot100:'+key,JSON.stringify(val));}catch (_) {}}};
   let unsavedDrafts = store.get('unsaved-drafts', {});
@@ -49,6 +49,7 @@
   function isSolved(p) {return ['solved','Accepted','accepted'].includes(p && p.status);}
   function isAttempted(p) {return !isSolved(p) && p && ['attempted','Wrong Answer','Runtime Error','Time Limit Exceeded','Output Limit Exceeded'].includes(p.status);}
   function progress(id) {return state.progress[String(id)] || (state.progress[String(id)] = {});}
+  function canEdit(id=state.current?.id) {return !!state.current&&state.current.id===id&&!state.loading&&!state.importing&&!state.reloadRequired;}
   function getCode() {return cm ? cm.getValue() : $('code').value;}
   function setCode(code) {suppressEditor=true;if(cm)cm.setValue(code);else $('code').value=code;suppressEditor=false;updateCursor();}
   function refreshEditor() {if(cm) requestAnimationFrame(()=>cm.refresh());}
@@ -84,7 +85,7 @@
     });return state.saves;
   }
   async function flushAll() {for(const p of state.problems)if((state.revisions[p.id]||0)>(state.saved[p.id]||0))flushSave(p.id);await state.saves;}
-  function codeChanged() {if(suppressEditor||!state.current||state.loading)return;progress(state.current.id).code=getCode();scheduleSave(state.current.id);}
+  function codeChanged() {if(suppressEditor||!canEdit())return;progress(state.current.id).code=getCode();scheduleSave(state.current.id);}
   function updateCursor() {let line=1,col=1;if(cm){const p=cm.getCursor();line=p.line+1;col=p.ch+1;}else{const before=$('code').value.slice(0,$('code').selectionStart);line=before.split('\n').length;col=before.length-before.lastIndexOf('\n');}$('cursor-position').textContent='Ln '+line+', Col '+col;}
 
   if(window.CodeMirror){
@@ -94,8 +95,8 @@
     $('code').addEventListener('input',codeChanged);['click','keyup','select'].forEach(e=>$('code').addEventListener(e,updateCursor));
     $('code').addEventListener('keydown',e=>{if(e.key==='Tab'){e.preventDefault();const t=$('code'),start=t.selectionStart,end=t.selectionEnd;t.setRangeText('    ',start,end,'end');codeChanged();updateCursor();}});
   }
-  function setEditorEnabled(enabled){if(cm)cm.setOption('readOnly',!enabled);$('code').disabled=!enabled;$('notes').disabled=!enabled;$('stdin').disabled=!enabled;['reset-code','download-code','favorite'].forEach(id=>$(id).disabled=!enabled);updateExecutionButtons();}
-  function updateExecutionButtons(){['run','submit'].forEach(id=>$(id).disabled=state.busy||state.loading||!state.current);}
+  function setEditorEnabled(enabled){enabled=enabled&&!state.importing&&!state.reloadRequired;if(cm)cm.setOption('readOnly',!enabled);$('code').disabled=!enabled;$('notes').disabled=!enabled;$('stdin').disabled=!enabled;['reset-code','download-code','favorite'].forEach(id=>$(id).disabled=!enabled);updateExecutionButtons();}
+  function updateExecutionButtons(){['run','submit'].forEach(id=>$(id).disabled=state.busy||state.backupBusy||state.loading||state.reloadRequired||!state.current);}
   setEditorEnabled(false);
 
   function renderDescription(problem) {
@@ -117,13 +118,14 @@
   function renderFavorite(){if(!state.current)return;const value=!!progress(state.current.id).favorite;$('favorite').classList.toggle('is-favorite',value);$('favorite').setAttribute('aria-pressed',String(value));$('favorite').lastElementChild.textContent=value?'已收藏':'收藏';}
   function renderCases(){
     if(!state.current)return;const p=state.current,id=p.id;
-    if(!state.inputs.has(id))state.inputs.set(id,{value:p.examples?.[0]?.input||'',active:0});
+    if(!state.inputs.has(id)){const value=p.examples?.[0]?.input||'';state.inputs.set(id,{value,customValue:value,active:0});}
     const input=state.inputs.get(id);$('stdin').value=input.value;$('case-buttons').replaceChildren();
-    (p.examples||[]).forEach((example,index)=>{const button=el('button','case-button'+(input.active===index?' active':''),'示例 '+(index+1));button.onclick=()=>{state.inputs.set(id,{value:example.input,active:index});renderCases();};$('case-buttons').append(button);});
-    const custom=el('button','case-button'+(input.active===-1?' active':''),'自定义');custom.onclick=()=>{input.active=-1;renderCases();$('stdin').focus();};$('case-buttons').append(custom);
+    (p.examples||[]).forEach((example,index)=>{const button=el('button','case-button'+(input.active===index?' active':''),'示例 '+(index+1));button.onclick=()=>{if(!canEdit(id))return;input.value=example.input;input.active=index;renderCases();};$('case-buttons').append(button);});
+    const custom=el('button','case-button'+(input.active===-1?' active':''),'自定义');custom.onclick=()=>{if(!canEdit(id))return;input.value=input.customValue;input.active=-1;renderCases();$('stdin').focus();};$('case-buttons').append(custom);
   }
   async function openProblem(id, {updateHash=true}={}) {
     if(state.importing)return;
+    if(state.reloadRequired){toast('请先刷新页面，重新读取导入的数据');return;}
     id=Number(id);if(!state.problems.some(p=>p.id===id))id=state.problems[0]?.id;if(!id)return;
     if(state.current?.id===id&&!state.loading){closeDrawer();return;}
     if(state.current)flushSave(state.current.id);
@@ -153,7 +155,7 @@
     try{const data=await api('/api/problems/'+id+'/solution');if(state.current?.id!==id||state.loading)return;
       const view=$('solution-view');view.replaceChildren();const head=el('div','section-heading');head.append(el('h2','','参考题解'),el('span','muted','Python 3 · ACM'));view.append(head,el('div','solution-explanation',data.explanation));
       const code=el('pre','solution-code',data.solution);view.append(code);const actions=el('div','solution-actions');const copy=el('button','secondary-button');copy.append(icon('copy'),document.createTextNode('复制代码'));copy.onclick=()=>copyText(data.solution);
-      const apply=el('button','secondary-button','放入编辑器');apply.onclick=()=>{if(state.current?.id!==id)return;if(!confirm('用参考解法替换当前代码？当前代码将被覆盖。'))return;setCode(data.solution);codeChanged();toast('参考解法已放入编辑器');};actions.append(copy,apply);view.append(actions);
+      const apply=el('button','secondary-button','放入编辑器');apply.onclick=()=>{if(!canEdit(id))return;if(!confirm('用参考解法替换当前代码？当前代码将被覆盖。'))return;setCode(data.solution);codeChanged();toast('参考解法已放入编辑器');};actions.append(copy,apply);view.append(actions);
     }catch(err){if(state.current?.id===id)$('solution-view').replaceChildren(errorView(err,()=>loadSolution(id)));}
   }
   async function loadSubmissions(id){
@@ -166,14 +168,19 @@
       data.submissions.forEach(sub=>{
         const row=el('button','submission-row'),primary=el('span','submission-primary');primary.append(el('strong',sub.status==='Accepted'?'accepted':'',statusText[sub.status]||sub.status),el('small','',formatDate(sub.created_at)));
         const meta=el('span','submission-meta',sub.passed+' / '+sub.total+' 用例 · '+formatTime(sub.elapsed_ms));row.append(primary,meta,icon('right'));
-        row.onclick=()=>{details.replaceChildren(el('h3','','本次提交的代码'),el('pre','submission-code',sub.code));const restore=el('button','secondary-button','恢复这份代码');restore.onclick=()=>{if(state.current?.id!==id)return;if(!confirm('用这次提交的代码替换当前代码？'))return;setCode(sub.code);codeChanged();toast('已恢复提交代码');};details.append(restore);details.scrollIntoView({behavior:'smooth',block:'nearest'});};view.append(row);
+        row.onclick=()=>{details.replaceChildren(el('h3','','本次提交的代码'),el('pre','submission-code',sub.code));const restore=el('button','secondary-button','恢复这份代码');restore.onclick=()=>{if(!canEdit(id))return;if(!confirm('用这次提交的代码替换当前代码？'))return;setCode(sub.code);codeChanged();toast('已恢复提交代码');};details.append(restore);details.scrollIntoView({behavior:'smooth',block:'nearest'});};view.append(row);
       });view.append(details);
     }catch(err){if(state.current?.id===id&&request===submissionRequest)$('submissions-view').replaceChildren(errorView(err,()=>loadSubmissions(id)));}
   }
   function formatDate(value){let date=new Date(typeof value==='number'&&value<1e12?value*1000:value);return Number.isNaN(date.getTime())?String(value||''):date.toLocaleString('zh-CN',{hour12:false});}
   function formatTime(ms){return Number.isFinite(Number(ms))?Math.round(Number(ms))+' ms':'—';}
   function activateTestTab(tab){state.testTab=tab;document.querySelectorAll('[data-test-tab]').forEach(b=>{const active=b.dataset.testTab===tab;b.classList.toggle('active',active);b.setAttribute('aria-selected',String(active));});$('testcase-view').hidden=tab!=='testcase';$('result-view').hidden=tab!=='result';if(tab==='result')$('result-dot').hidden=true;}
-  function resultSection(container,label,value,error=false){const section=el('div','result-section');section.append(el('label','',label),el('pre','result-pre'+(error?' error-output':''),value===undefined||value===''?'（空）':String(value)));container.append(section);}
+  function resultSection(container,label,value,error=false){
+    const section=el('div','result-section'),text=value===undefined||value===''?'（空）':String(value),limit=65536;
+    section.append(el('label','',label),el('pre','result-pre'+(error?' error-output':''),text.slice(0,limit)));
+    if(text.length>limit)section.append(el('p','result-info','内容较长，仅显示前 65,536 个字符。显示截断不影响运行和判题使用的完整数据。'));
+    container.append(section);
+  }
   function renderResult(){
     const view=$('result-view'),record=state.results.get(state.current?.id);view.replaceChildren();
     if(!record){const node=el('div','empty-result');node.append(icon('terminal'),el('p','','运行代码，查看测试结果'),el('span','','运行测试当前输入 · 提交检查全部内置用例'));view.append(node);return;}
@@ -187,7 +194,7 @@
     }else{resultSection(view,'标准输出 stdout',data.stdout);if(data.stderr)resultSection(view,'错误信息 stderr',data.stderr,true);view.append(el('p','result-info','运行仅执行当前输入，不判断答案。点击「提交」进行评测。'));}
   }
   async function execute(submit){
-    if(state.loading||state.busy||!state.current)return;const id=state.current.id,code=getCode(),stdin=$('stdin').value;
+    if(state.loading||state.busy||state.backupBusy||state.reloadRequired||!state.current)return;const id=state.current.id,code=getCode(),stdin=$('stdin').value;
     state.busy=true;updateExecutionButtons();state.results.set(id,{pending:true,submit});activateTestTab('result');renderResult();
     const button=$(submit?'submit':'run'),previous=button.innerHTML;button.replaceChildren(el('span','spinner'),document.createTextNode(submit?'评测中':'运行中'));
     try{
@@ -216,11 +223,11 @@
   $('previous').onclick=()=>navigate(-1);$('next').onclick=()=>navigate(1);
   ['problem-search','category-filter','difficulty-filter','status-filter'].forEach(id=>$(id).addEventListener(id==='problem-search'?'input':'change',renderList));
   document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>activateTab(b.dataset.tab));document.querySelectorAll('[data-test-tab]').forEach(b=>b.onclick=()=>activateTestTab(b.dataset.testTab));
-  $('favorite').onclick=()=>{if(!state.current)return;const id=state.current.id;progress(id).favorite=!progress(id).favorite;scheduleSave(id);renderFavorite();renderList();};
-  $('notes').oninput=()=>{if(!state.current||state.loading)return;progress(state.current.id).notes=$('notes').value;scheduleSave(state.current.id);};
-  $('stdin').oninput=()=>{if(!state.current)return;state.inputs.set(state.current.id,{value:$('stdin').value,active:-1});$('case-buttons').querySelectorAll('.case-button').forEach((b,i,all)=>b.classList.toggle('active',i===all.length-1));};
+  $('favorite').onclick=()=>{if(!canEdit())return;const id=state.current.id;progress(id).favorite=!progress(id).favorite;scheduleSave(id);renderFavorite();renderList();};
+  $('notes').oninput=()=>{if(!canEdit())return;progress(state.current.id).notes=$('notes').value;scheduleSave(state.current.id);};
+  $('stdin').oninput=()=>{if(!canEdit())return;const value=$('stdin').value;state.inputs.set(state.current.id,Object.assign(state.inputs.get(state.current.id)||{},{value,customValue:value,active:-1}));$('case-buttons').querySelectorAll('.case-button').forEach((b,i,all)=>b.classList.toggle('active',i===all.length-1));};
   $('run').onclick=()=>execute(false);$('submit').onclick=()=>execute(true);
-  $('reset-code').onclick=()=>{if(!state.current||!confirm('恢复初始代码？当前编辑器中的代码将被覆盖。'))return;setCode(state.current.starter||'');codeChanged();toast('已恢复初始代码');};
+  $('reset-code').onclick=()=>{if(!canEdit()||!confirm('恢复初始代码？当前编辑器中的代码将被覆盖。'))return;setCode(state.current.starter||'');codeChanged();toast('已恢复初始代码');};
   function download(name,content,type){const blob=new Blob([content],{type}),url=URL.createObjectURL(blob),link=el('a');link.href=url;link.download=name;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);}
   $('download-code').onclick=()=>{if(state.current)download(state.current.id+'_'+(state.current.slug||'solution')+'.py',getCode(),'text/x-python;charset=utf-8');};
   async function copyText(text){try{await navigator.clipboard.writeText(text);toast('已复制代码');}catch(_){const t=el('textarea');t.value=text;t.style.cssText='position:fixed;left:-9999px';document.body.append(t);t.select();const ok=document.execCommand('copy');t.remove();toast(ok?'已复制代码':'复制失败，请手动选择代码复制');}}
@@ -234,14 +241,30 @@
   $('timer').onclick=()=>{if(timerStarted!==null){timerElapsed+=Date.now()-timerStarted;timerStarted=null;store.set('timer',timerElapsed);}else timerStarted=Date.now();paintTimer();};paintTimer();setInterval(paintTimer,1000);
   $('help').onclick=()=>{$('help-dialog').showModal();};$('close-help').onclick=()=>{$('help-dialog').close();};$('help-dialog').addEventListener('click',e=>{if(e.target===$('help-dialog')){const r=$('help-dialog').getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)$('help-dialog').close();}});
   $('reset-timer').onclick=()=>{timerElapsed=0;timerStarted=null;store.set('timer',0);paintTimer();toast('计时器已重置');};
-  $('export-data').onclick=async()=>{const b=$('export-data');b.disabled=true;try{await flushAll();if(state.errors.size)throw new Error('部分草稿尚未保存，请先恢复服务连接后再导出。');const data=await api('/api/export');download('acm-hot100-backup-'+new Date().toISOString().slice(0,10)+'.json',JSON.stringify(data,null,2),'application/json');toast('备份已导出');}catch(e){toast('导出失败：'+e.message);}finally{b.disabled=false;}};
-  $('import-data').onclick=()=>$('import-file').click();$('import-file').onchange=async()=>{
+  function setBackupBusy(busy){state.backupBusy=busy;['export-data','import-data'].forEach(id=>$(id).disabled=busy);updateExecutionButtons();}
+  $('export-data').onclick=async()=>{
+    if(state.backupBusy)return;if(state.busy){toast('请等待当前代码运行结束后再导出备份');return;}
+    setBackupBusy(true);
+    try{await flushAll();if(state.errors.size)throw new Error('部分草稿尚未保存，请先恢复服务连接后再导出。');const data=await api('/api/export');download('acm-hot100-backup-'+new Date().toISOString().slice(0,10)+'.json',JSON.stringify(data,null,2),'application/json');toast('备份已导出');}catch(e){toast('导出失败：'+e.message);}finally{setBackupBusy(false);}
+  };
+  $('import-data').onclick=()=>{if(!state.backupBusy)$('import-file').click();};$('import-file').onchange=async()=>{
     const file=$('import-file').files[0];if(!file)return;$('import-file').value='';
+    if(state.backupBusy)return;
     if(state.busy){toast('请等待当前代码运行结束后再导入备份');return;}
-    if(file.size>50*1024*1024){toast('备份文件过大，请使用小于 50 MB 的 JSON 文件');return;}
+    if(state.loading){toast('请等待题目加载完成后再导入备份');return;}
+    if(file.size>32*1024*1024){toast('备份文件过大，请使用不超过 32 MiB 的 JSON 文件');return;}
     if(!confirm('导入后会合并备份中的进度、代码和笔记。相同题目的当前数据可能被覆盖，建议先导出备份。继续导入？'))return;
-    const button=$('import-data');button.disabled=true;state.importing=true;state.busy=true;setEditorEnabled(false);
-    try{const data=JSON.parse(await file.text());await flushAll();if(state.errors.size)throw new Error('当前草稿未能保存，请恢复连接后重试。');await api('/api/import',data);const boot=await api('/api/bootstrap');state.progress=boot.progress||{};state.token=boot.token;const id=state.current?.id;state.current=null;state.cache.clear();renderList();state.importing=false;if(id)await openProblem(id);toast('备份已导入');}catch(e){toast('导入失败：'+e.message);}finally{button.disabled=false;state.importing=false;state.busy=false;setEditorEnabled(!!state.current&&!state.loading);}
+    setBackupBusy(true);state.importing=true;setEditorEnabled(false);++submissionRequest;
+    let imported=false;
+    try{
+      const data=JSON.parse(await file.text());await flushAll();if(state.errors.size)throw new Error('当前草稿未能保存，请恢复连接后重试。');
+      await api('/api/import',data);imported=true;
+      const boot=await api('/api/bootstrap');state.progress=boot.progress||{};state.token=boot.token;state.reloadRequired=false;
+      const id=state.current?.id||state.targetId||state.problems[0]?.id;state.current=null;state.cache.clear();state.results.clear();renderList();state.importing=false;if(id)await openProblem(id);toast('备份已导入');
+    }catch(e){
+      if(imported){state.current=null;state.loading=false;state.reloadRequired=true;$('description-view').replaceChildren(errorView(new Error('备份已导入，但页面刷新失败。请刷新页面后继续，避免覆盖导入的数据。\n'+e.message),()=>location.reload()));activateTab('description');toast('备份已导入，请刷新页面重新加载');}
+      else toast('导入失败：'+e.message);
+    }finally{state.importing=false;setBackupBusy(false);setEditorEnabled(!!state.current&&!state.loading);}
   };
 
   function divider(id,axis){const node=$(id);let start;

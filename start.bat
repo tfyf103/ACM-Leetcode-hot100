@@ -1,9 +1,6 @@
 @echo off
-cd /d "%~dp0"
-where py >nul 2>nul
-if %errorlevel%==0 (
-    py -3 app.py
-) else (
-    python app.py
-)
-if errorlevel 1 pause
+setlocal
+"%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%~dp0start.ps1" %*
+set "START_EXIT=%ERRORLEVEL%"
+if not "%START_EXIT%"=="0" if not defined ACM_NO_PAUSE pause
+exit /b %START_EXIT%

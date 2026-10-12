@@ -16,7 +16,9 @@ from pathlib import Path
 
 CASE_TIMEOUT = 2.0
 SUBMISSION_TIMEOUT = 35.0
-OUTPUT_LIMIT = 128 * 1024
+# Large arrays and interval lists can legitimately print several megabytes.
+# Enumeration problems may opt into a larger per-problem limit.
+OUTPUT_LIMIT = 4 * 1024 * 1024
 
 
 def _terminate(process):
@@ -221,7 +223,9 @@ def submit(problem, code, checker=None):
         if remaining <= 0:
             run = {"status": "Time Limit Exceeded", "stdout": "", "stderr": ""}
         else:
-            run = execute(code, case["input"], timeout=min(CASE_TIMEOUT, remaining))
+            run = execute(code, case["input"],
+                          timeout=min(problem.get("case_timeout", CASE_TIMEOUT), remaining),
+                          output_limit=problem.get("output_limit", OUTPUT_LIMIT))
         status = run["status"]
         if status == "Finished":
             try:

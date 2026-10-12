@@ -138,6 +138,14 @@ def schema_errors(problem):
             errors.append("difficulty must be " + difficulty)
     if problem.get("compare", "tokens") not in MODES:
         errors.append("invalid comparison mode")
+    if "output_limit" in problem and (type(problem["output_limit"]) is not int
+                                      or not 1 <= problem["output_limit"] <= 32 * 1024 * 1024):
+        errors.append("output_limit must be 1 to 32 MiB in bytes")
+    if "case_timeout" in problem and (
+            type(problem["case_timeout"]) not in (int, float)
+            or not 0 < problem["case_timeout"] <= 35
+            or not math.isfinite(problem["case_timeout"])):
+        errors.append("case_timeout must be a positive finite number of seconds, at most 35")
     constraints = problem.get("constraints")
     if not isinstance(constraints, list) or not constraints or not all(
             isinstance(value, str) and value.strip() for value in constraints):

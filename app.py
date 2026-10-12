@@ -7,7 +7,9 @@ import hmac
 import json
 import math
 import mimetypes
+import os
 import secrets
+import socket
 import sqlite3
 import sys
 import threading
@@ -24,8 +26,9 @@ import judge
 ROOT = Path(__file__).resolve().parent
 MAX_CODE = 64 * 1024
 MAX_NOTES = 16 * 1024
-MAX_STDIN = 128 * 1024
-MAX_BODY = 512 * 1024
+# The largest catalog inputs contain 200,000 signed integers (about 2.4 MB).
+MAX_STDIN = 4 * 1024 * 1024
+MAX_BODY = 8 * 1024 * 1024
 MAX_BACKUP = 32 * 1024 * 1024
 MAX_IMPORT_SUBMISSIONS = 100000
 SUBMISSION_STATUSES = {
@@ -273,7 +276,7 @@ class Application:
             if (entry["status"] == "Accepted") != (passed == total):
                 raise ApiError("备份通过数量与状态不一致")
             elapsed = entry.get("elapsed_ms")
-            if type(elapsed) not in (int, float) or not math.isfinite(elapsed) or not 0 <= elapsed <= 3600000:
+            if type(elapsed) not in (int, float) or not 0 <= elapsed <= 3600000 or not math.isfinite(elapsed):
                 raise ApiError("备份运行时间无效")
             validated_submissions.append({
                 "problem_id": problem_id, "status": entry["status"], "passed": passed,
@@ -286,11 +289,18 @@ class Application:
 
 class LocalServer(ThreadingHTTPServer):
     daemon_threads = True
-    allow_reuse_address = True
+    # Windows SO_REUSEADDR permits two live servers to share a port. Repeated
+    # double-clicks must fail clearly instead of serving unpredictable instances.
+    allow_reuse_address = os.name != "nt"
 
     def __init__(self, port, application):
         self.application = application
         super().__init__(("127.0.0.1", port), Handler)
+
+    def server_bind(self):
+        if os.name == "nt":
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+        super().server_bind()
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -459,7 +469,9 @@ class Handler(BaseHTTPRequestHandler):
             raise ApiError("已有程序正在运行，请等待完成后重试", 409)
         try:
             if path == "/api/run":
-                result = judge.execute(code, stdin)
+                result = judge.execute(code, stdin,
+                                       timeout=problem.get("case_timeout", judge.CASE_TIMEOUT),
+                                       output_limit=problem.get("output_limit", judge.OUTPUT_LIMIT))
             else:
                 # Persist this submission before execution. Later autosaved drafts
                 # must survive a judging result that arrives after further edits.
@@ -493,7 +505,8 @@ def main(argv=None):
     try:
         server = create_server(args.port, args.data_dir)
     except OSError as error:
-        parser.exit(1, "无法启动服务：%s\n请尝试 python app.py --port 8766\n" % error)
+        command = "start.bat --port 8766" if os.name == "nt" else "python3 app.py --port 8766"
+        parser.exit(1, "无法启动服务：%s\n请关闭已有服务，或尝试 %s\n" % (error, command))
     url = "http://127.0.0.1:%s" % server.server_port
     print("ACM Hot 100 — %s 道题 · Python %s" % (len(catalog.PROBLEMS), sys.version.split()[0]))
     print("打开：%s" % url)

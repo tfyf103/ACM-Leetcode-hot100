@@ -339,10 +339,19 @@ _add(79, "单词搜索", "word-search", "Medium", "回溯",
       ("3 4\nABCE\nSFCS\nADEE\nABCB\n", "false\n"),
       ("1 1\na\na\n", "true\n"), ("1 1\na\naa\n", "false\n"),
       ("2 2\nab\ncd\nacdb\n", "true\n"),
-      ("2 2\nab\ncd\nad\n", "false\n")], '''
+      ("2 2\nab\ncd\nad\n", "false\n"),
+      ("6 6\n" + "AAAAAA\n" * 6 + "A" * 14 + "B\n", "false\n"),
+      ("3 4\nAAAA\nAAAA\nAAAB\nAAAAAB\n", "true\n")], '''
     m, n = map(int, input().split())
     board = [list(input().strip()) for _ in range(m)]
     word = input().strip()
+    available = Counter(char for row in board for char in row)
+    if any(count > available[char] for char, count in Counter(word).items()):
+        print('false')
+        return
+    # A valid path can be followed in either direction. Start at the rarer end.
+    if available[word[0]] > available[word[-1]]:
+        word = word[::-1]
     def dfs(r, c, index):
         if board[r][c] != word[index]:
             return False
@@ -360,7 +369,7 @@ _add(79, "单词搜索", "word-search", "Medium", "回溯",
         return False
     found = any(dfs(r, c, 0) for r in range(m) for c in range(n))
     print('true' if found else 'false')
-''', "从每个格子出发 DFS，临时改写字符防止重复使用，返回时还原。设单词长度 L，时间上界 O(mn·4^L)，除输入网格外辅助空间 O(L)。")
+''', "先统计字符频次，所需字符不足时直接返回 false；从出现次数较少的端点开始搜索。再从每个格子出发 DFS，临时改写字符防止重复使用，返回时还原。设单词长度 L，时间上界 O(mn·4^L)，除输入网格外辅助空间 O(L)。")
 
 _add(131, "分割回文串", "palindrome-partitioning", "Medium", "回溯",
      "将一个字符串切成一个或多个连续非空片段，要求每个片段都是回文串。输出全部切分方案，片段拼接后必须等于原串。",

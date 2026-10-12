@@ -7,7 +7,8 @@ CHECKERS = {}
 
 
 def _add(pid, title, slug, difficulty, category, description, input_format,
-         output_format, constraints, cases, solution, explanation, compare="tokens"):
+         output_format, constraints, cases, solution, explanation, compare="tokens",
+         output_limit=None, case_timeout=None):
     tests = [{"input": i, "output": o} for i, o in cases]
     PROBLEMS.append(dict(
         id=pid, title=title, slug=slug, difficulty=difficulty, category=category,
@@ -17,6 +18,10 @@ def _add(pid, title, slug, difficulty, category, description, input_format,
         starter="import sys\n\ninput = sys.stdin.readline\n\ndef solve():\n    # 按左侧输入格式读取数据，在此完成算法并输出答案\n    pass\n\nif __name__ == \"__main__\":\n    solve()\n",
         solution=dedent(solution).strip() + "\n", explanation=explanation,
         compare=compare))
+    if output_limit is not None:
+        PROBLEMS[-1]["output_limit"] = output_limit
+    if case_timeout is not None:
+        PROBLEMS[-1]["case_timeout"] = case_timeout
 
 
 def _two_sum(stdin, actual, expected):
@@ -244,12 +249,14 @@ _add(15, "三数之和", "3sum", "Medium", "双指针",
                          l += 1
                      while l < r and a[r] == a[r+1]:
                          r -= 1
-         print(len(answer))
-         for triple in answer:
-             print(*triple)
+         # Batch output: a valid large input may have over a million triples.
+         lines = [str(len(answer))]
+         lines.extend(' '.join(map(str, triple)) for triple in answer)
+         sys.stdout.write('\\n'.join(lines) + '\\n')
      if __name__ == "__main__":
          solve()
-     ''', "先排序，再固定第一个数，用左右指针寻找剩余两数。和小则左移到更大值，和大则右移到更小值。固定数及成功匹配后的两端都跳过重复值。时间 O(n²)，排序空间 O(n)，答案另计。")
+     ''', "先排序，再固定第一个数，用左右指针寻找剩余两数。和小则左移到更大值，和大则右移到更小值。固定数及成功匹配后的两端都跳过重复值。时间 O(n²)，排序空间 O(n)，答案另计。",
+     output_limit=32 * 1024 * 1024, case_timeout=10.0)
 
 _add(42, "接雨水", "trapping-rain-water", "Hard", "双指针",
      "数组表示一排宽度均为 1 的柱子高度。雨水会被左右较高的柱子拦住，求所有柱子之间能够存储的雨水总量。",

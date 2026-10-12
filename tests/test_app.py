@@ -54,9 +54,27 @@ class JudgeTests(unittest.TestCase):
         self.assertLessEqual(len(result["stdout"].encode()) + len(result["stderr"].encode()), 16384)
 
     def test_finite_large_output_is_still_rejected(self):
-        result = judge.execute("print('x' * 200000)", "")
+        result = judge.execute("print('x' * 200000)", "", output_limit=16384)
         self.assertEqual(result["status"], "Output Limit Exceeded")
-        self.assertLessEqual(len(result["stdout"]), judge.OUTPUT_LIMIT)
+        self.assertLessEqual(len(result["stdout"]), 16384)
+
+    def test_valid_large_output_is_supported(self):
+        result = judge.execute("print('x' * 2400000)", "")
+        self.assertEqual(result["status"], "Finished")
+        self.assertEqual(result["stdout"], "x" * 2400000 + "\n")
+
+    def test_submission_uses_problem_output_limit(self):
+        problem = dict(PROBLEM, tests=[{"input": "", "output": "x" * 1024 + "\n"}],
+                       output_limit=128)
+        result = judge.submit(problem, "print('x' * 1024)")
+        self.assertEqual(result["status"], "Output Limit Exceeded")
+        self.assertLessEqual(len(result["case"]["actual"]), 128)
+
+    def test_submission_uses_problem_time_limit(self):
+        problem = dict(PROBLEM, tests=[{"input": "", "output": "done\n"}],
+                       case_timeout=0.1)
+        result = judge.submit(problem, "import time; time.sleep(0.5); print('done')")
+        self.assertEqual(result["status"], "Time Limit Exceeded")
 
     def test_stdin_not_consumed_cannot_deadlock(self):
         result = judge.execute("while True: pass", "x" * 131072, timeout=0.2)
@@ -183,6 +201,27 @@ class HttpTests(unittest.TestCase):
         self.assertEqual((status, result["status"], result["stdout"]), (200, "Finished", "6\n"))
         self.assertEqual(self.request("GET", "/api/bootstrap")[2]["progress"], {})
 
+    def test_run_accepts_large_custom_stdin(self):
+        status, _, result = self.request("POST", "/api/run", {
+            "problem_id": 1, "code": SOLUTION, "stdin": " " * 2400000 + "2 4",
+        })
+        self.assertEqual((status, result["status"], result["stdout"]), (200, "Finished", "6\n"))
+
+    def test_run_uses_problem_output_limit(self):
+        with patch.dict(self.server.application.problems[1], {"output_limit": 128}):
+            status, _, result = self.request("POST", "/api/run", {
+                "problem_id": 1, "code": "print('x' * 1024)",
+            })
+        self.assertEqual((status, result["status"]), (200, "Output Limit Exceeded"))
+        self.assertLessEqual(len(result["stdout"]), 128)
+
+    def test_run_uses_problem_time_limit(self):
+        with patch.dict(self.server.application.problems[1], {"case_timeout": 0.1}):
+            status, _, result = self.request("POST", "/api/run", {
+                "problem_id": 1, "code": "import time; time.sleep(0.5); print('done')",
+            })
+        self.assertEqual((status, result["status"]), (200, "Time Limit Exceeded"))
+
     def test_submit_history_and_solved_is_cumulative(self):
         _, _, result = self.request("POST", "/api/submit", {"problem_id": 1, "code": SOLUTION})
         self.assertEqual((result["status"], result["passed"], result["total"]), ("Accepted", 5, 5))
@@ -277,6 +316,25 @@ class HttpTests(unittest.TestCase):
         progress = self.request("GET", "/api/bootstrap")[2]["progress"]["1"]
         self.assertEqual(progress["status"], "attempted")
         self.assertEqual(progress["code"], "new draft")
+
+    def test_backup_rejects_huge_elapsed_time_without_server_error(self):
+        backup = {"version": 1, "progress": {}, "submissions": [{
+            "problem_id": 1, "status": "Wrong Answer", "passed": 0, "total": 5,
+            "elapsed_ms": 10 ** 1000, "created_at": app.now(), "code": "print(0)",
+        }]}
+        self.assertEqual(self.request("POST", "/api/import", backup)[0], 400)
+        self.assertEqual(self.request("GET", "/api/export")[2]["submissions"], [])
+
+    def test_second_server_cannot_bind_existing_port(self):
+        with tempfile.TemporaryDirectory() as directory:
+            second = None
+            try:
+                with self.assertRaises(OSError):
+                    second = app.create_server(self.server.server_port, directory, [PROBLEM], {})
+            finally:
+                if second is not None:
+                    second.server_close()
+                    second.application.store.close()
 
     def test_persistence_can_be_reopened(self):
         with tempfile.TemporaryDirectory() as directory:
