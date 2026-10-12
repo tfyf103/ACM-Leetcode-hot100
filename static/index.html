@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f0f0f0">
+  <title>ACM Hot 100 · Python 练习工作台</title>
+  <link rel="stylesheet" href="/static/vendor/codemirror.css">
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header class="navbar">
+    <a class="brand" href="#1" aria-label="ACM Hot 100 首页"><span class="brand-mark" aria-hidden="true">〈<b>/</b>〉</span><span>ACM <strong>Hot 100</strong></span></a>
+    <span class="nav-separator"></span>
+    <button id="list-toggle" class="nav-button" title="打开题单" aria-label="打开题单"><span data-icon="list"></span><span>题目列表</span></button>
+    <button id="previous" class="icon-button" title="上一题" aria-label="上一题"><span data-icon="left"></span></button>
+    <button id="next" class="icon-button" title="下一题" aria-label="下一题"><span data-icon="right"></span></button>
+    <div class="nav-center">
+      <button id="run" class="run-button" title="运行代码 · Ctrl + Enter"><span data-icon="play"></span><span>运行</span></button>
+      <button id="submit" class="submit-button" title="提交代码 · Ctrl + Shift + Enter"><span data-icon="upload"></span><span>提交</span></button>
+      <button id="timer" class="timer-button" title="开始 / 暂停计时" aria-label="开始 / 暂停计时"><span data-icon="timer"></span><span id="timer-text">00:00</span></button>
+    </div>
+    <div class="nav-end"><span class="local-indicator"><i></i>本地运行</span><button id="theme" class="icon-button" title="切换深色 / 浅色" aria-label="切换深色 / 浅色"><span data-icon="moon"></span></button><button id="help" class="icon-button" title="使用指南与备份" aria-label="使用指南与备份"><span data-icon="settings"></span></button></div>
+  </header>
+
+  <main id="workspace" class="workspace">
+    <section class="panel problem-panel" aria-label="题目内容">
+      <div class="panel-tabs" role="tablist" aria-label="题目视图">
+        <button class="panel-tab active" id="tab-description" data-tab="description" role="tab" aria-selected="true" aria-controls="description-view"><span data-icon="document"></span>题目描述</button>
+        <button class="panel-tab" id="tab-solution" data-tab="solution" role="tab" aria-selected="false" aria-controls="solution-view"><span data-icon="bulb"></span>题解</button>
+        <button class="panel-tab" id="tab-submissions" data-tab="submissions" role="tab" aria-selected="false" aria-controls="submissions-view"><span data-icon="history"></span>提交记录</button>
+        <button class="panel-tab" id="tab-notes" data-tab="notes" role="tab" aria-selected="false" aria-controls="notes-view"><span data-icon="note"></span>笔记</button>
+      </div>
+      <div class="problem-scroll">
+        <div id="description-view" class="tab-view" role="tabpanel" aria-labelledby="tab-description"><div class="loading-state"><span class="spinner"></span>正在加载题目…</div></div>
+        <div id="solution-view" class="tab-view" role="tabpanel" aria-labelledby="tab-solution" hidden></div>
+        <div id="submissions-view" class="tab-view" role="tabpanel" aria-labelledby="tab-submissions" hidden></div>
+        <div id="notes-view" class="tab-view notes-view" role="tabpanel" aria-labelledby="tab-notes" hidden><div class="section-heading"><h2>我的笔记</h2><span class="muted">自动保存到本地</span></div><textarea id="notes" placeholder="记录解题思路、易错点和复杂度分析…" aria-label="我的笔记" spellcheck="false"></textarea></div>
+      </div>
+      <div class="problem-footer"><button id="favorite" class="footer-button" title="收藏这道题"><span data-icon="star"></span><span>收藏</span></button><span id="problem-position" class="muted"></span><span class="footer-acm">ACM 输入输出</span></div>
+    </section>
+
+    <div id="column-divider" class="divider column-divider" role="separator" aria-orientation="vertical" aria-label="调整题目和编辑器宽度" tabindex="0"><span></span></div>
+
+    <section class="right-column" aria-label="编程与测试">
+      <section class="panel editor-panel">
+        <div class="panel-header"><span class="panel-label"><span data-icon="code"></span>代码</span><span id="save-status" class="save-status" role="status">已保存</span></div>
+        <div class="editor-toolbar"><span class="language-label">Python3 <span class="language-chevron">⌄</span></span><span class="editor-mode">ACM 模式</span><div class="editor-actions"><button id="font-decrease" class="text-icon-button" title="减小字号" aria-label="减小字号">A−</button><button id="font-increase" class="text-icon-button" title="增大字号" aria-label="增大字号">A+</button><button id="reset-code" class="icon-button small" title="恢复初始代码" aria-label="恢复初始代码"><span data-icon="reset"></span></button><button id="download-code" class="icon-button small" title="下载 Python 文件" aria-label="下载 Python 文件"><span data-icon="download"></span></button></div></div>
+        <div id="editor-container" class="editor-container"><textarea id="code" aria-label="Python3 代码编辑器" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off"></textarea></div>
+        <div class="editor-footer"><span id="cursor-position">Ln 1, Col 1</span><span>UTF-8<span class="footer-dot">·</span>4 空格<span class="footer-dot">·</span><span id="python-version">Python 3</span></span></div>
+      </section>
+
+      <div id="row-divider" class="divider row-divider" role="separator" aria-orientation="horizontal" aria-label="调整代码和测试区高度" tabindex="0"><span></span></div>
+
+      <section class="panel test-panel">
+        <div class="panel-tabs test-tabs" role="tablist" aria-label="测试视图"><button id="tab-testcase" class="panel-tab active" data-test-tab="testcase" role="tab" aria-selected="true"><span data-icon="terminal"></span>测试用例</button><button id="tab-result" class="panel-tab" data-test-tab="result" role="tab" aria-selected="false"><span data-icon="checklist"></span>测试结果<span id="result-dot" hidden></span></button></div>
+        <div id="testcase-view" class="test-body"><div id="case-buttons" class="case-buttons"></div><label for="stdin" class="input-label">输入 <span>stdin</span></label><textarea id="stdin" class="stdin-input" spellcheck="false" aria-label="标准输入"></textarea><div class="test-hint">完整读取标准输入，使用 print 输出答案。</div></div>
+        <div id="result-view" class="test-body" role="status" hidden><div class="empty-result"><span data-icon="terminal"></span><p>运行代码，查看测试结果</p><span>运行测试当前输入 · 提交检查全部内置用例</span></div></div>
+      </section>
+    </section>
+  </main>
+
+  <div id="drawer-backdrop" class="backdrop" hidden></div>
+  <aside id="problem-drawer" class="problem-drawer" aria-label="Hot 100 题目列表" aria-hidden="true" inert>
+    <div class="drawer-header"><div><div class="eyebrow">STUDY PLAN</div><h2>LeetCode 热题 100</h2><p>以 ACM 模式，练好每一道经典题。</p></div><button id="close-list" class="icon-button" title="关闭题单" aria-label="关闭题单"><span data-icon="close"></span></button></div>
+    <div class="progress-card"><div class="progress-top"><span>练习进度</span><span><strong id="solved-count">0</strong><span class="muted"> / <span id="total-count">100</span></span></span></div><div class="progress-track"><div id="progress-fill"></div></div><div id="difficulty-progress" class="difficulty-progress"></div></div>
+    <div class="drawer-filters"><div class="search-box"><span data-icon="search"></span><input id="problem-search" type="search" placeholder="搜索题号、题名" aria-label="搜索题目"><kbd>/</kbd></div><div class="filter-row"><select id="category-filter" aria-label="按分类筛选"><option value="">全部分类</option></select><select id="difficulty-filter" aria-label="按难度筛选"><option value="">全部难度</option><option value="Easy">简单</option><option value="Medium">中等</option><option value="Hard">困难</option></select><select id="status-filter" aria-label="按状态筛选"><option value="">全部状态</option><option value="solved">已通过</option><option value="attempted">尝试过</option><option value="todo">未开始</option><option value="favorite">已收藏</option></select></div></div>
+    <div class="list-meta"><span id="filtered-count">100 道题目</span><span>按经典题单顺序</span></div><div id="problem-list" class="problem-list"></div>
+    <div class="drawer-footer"><span data-icon="lock"></span>代码、笔记和记录保存在你的电脑上</div>
+  </aside>
+
+  <dialog id="help-dialog" class="help-dialog"><div class="dialog-header"><h2>你的本地刷题工作台</h2><button id="close-help" class="icon-button" title="关闭" aria-label="关闭"><span data-icon="close"></span></button></div><p class="dialog-intro">Python 3 · ACM 标准输入输出 · 离线可用</p><div class="help-section"><h3>如何刷题</h3><ol><li>阅读题目约定的输入格式，编写完整的 Python 程序。</li><li>点击「运行」测试样例，也可以直接修改输入。</li><li>点击「提交」检查所有内置用例，通过后记录进度。</li></ol><p class="help-note">内置用例帮助检查实现，但不等同于力扣官方评测。题目为独立整理的 ACM 改编版，本站与 LeetCode 无关联。</p></div><div class="help-section"><h3>快捷键</h3><div class="shortcut-row"><span>运行当前输入</span><kbd>Ctrl / ⌘ + Enter</kbd></div><div class="shortcut-row"><span>提交全部用例</span><kbd>Ctrl / ⌘ + Shift + Enter</kbd></div><div class="shortcut-row"><span>搜索题目</span><kbd>/</kbd></div></div><div class="help-section"><h3>数据与备份</h3><p>代码和笔记自动保存。导出备份包含练习进度、代码、笔记和提交记录；导入会合并备份数据。</p><div class="backup-actions"><button id="export-data" class="secondary-button"><span data-icon="download"></span>导出备份</button><button id="import-data" class="secondary-button"><span data-icon="upload"></span>导入备份</button><input id="import-file" type="file" accept="application/json,.json" hidden></div></div><div class="dialog-bottom"><button id="reset-timer" class="text-button">重置计时器</button><span id="help-runtime" class="muted"></span></div></dialog>
+  <div id="toast" class="toast" role="status" hidden></div>
+  <script src="/static/vendor/codemirror.js"></script>
+  <script src="/static/vendor/python.js"></script>
+  <script src="/static/vendor/closebrackets.js"></script>
+  <script src="/static/vendor/matchbrackets.js"></script>
+  <script src="/static/app.js"></script>
+</body>
+</html>
