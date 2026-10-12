@@ -24,8 +24,9 @@ import judge
 ROOT = Path(__file__).resolve().parent
 MAX_CODE = 64 * 1024
 MAX_NOTES = 16 * 1024
-MAX_STDIN = 128 * 1024
-MAX_BODY = 512 * 1024
+# The largest catalog inputs contain two arrays of 100,000 ten-digit integers.
+MAX_STDIN = 4 * 1024 * 1024
+MAX_BODY = 8 * 1024 * 1024
 MAX_BACKUP = 32 * 1024 * 1024
 MAX_IMPORT_SUBMISSIONS = 100000
 SUBMISSION_STATUSES = {

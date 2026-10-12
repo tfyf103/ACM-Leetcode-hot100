@@ -34,7 +34,7 @@
   document.querySelectorAll('[data-icon]').forEach((node) => { node.innerHTML = svg(node.dataset.icon); });
   const difficulty = {Easy:'简单', Medium:'中等', Hard:'困难'};
   const statusText = {'Accepted':'通过', 'Wrong Answer':'答案错误', 'Runtime Error':'运行出错', 'Time Limit Exceeded':'超出时间限制', 'Output Limit Exceeded':'超出输出限制', 'Finished':'运行完成'};
-  const state = {problems:[], progress:{}, cache:new Map(), results:new Map(), inputs:new Map(), token:'', current:null, targetId:null, tab:'description', testTab:'testcase', navigation:0, loading:true, busy:false, revisions:{}, saved:{}, errors:new Set(), timers:new Map(), saves:Promise.resolve(), fontSize:14};
+  const state = {problems:[], progress:{}, cache:new Map(), results:new Map(), inputs:new Map(), token:'', current:null, targetId:null, tab:'description', testTab:'testcase', navigation:0, loading:true, busy:false, importing:false, revisions:{}, saved:{}, errors:new Set(), timers:new Map(), saves:Promise.resolve(), fontSize:14};
   let cm = null, suppressEditor = false, toastTimeout, drawerFocus = null, submissionRequest = 0;
   const store = {get(key, fallback=null) {try {const val=localStorage.getItem('acm-hot100:'+key); return val===null?fallback:JSON.parse(val);}catch (_) {return fallback;}}, set(key,val) {try{localStorage.setItem('acm-hot100:'+key,JSON.stringify(val));}catch (_) {}}};
   let unsavedDrafts = store.get('unsaved-drafts', {});
@@ -84,7 +84,7 @@
     });return state.saves;
   }
   async function flushAll() {for(const p of state.problems)if((state.revisions[p.id]||0)>(state.saved[p.id]||0))flushSave(p.id);await state.saves;}
-  function codeChanged() {if(suppressEditor||!state.current||state.loading)return;progress(state.current.id).code=getCode();scheduleSave(state.current.id);}
+  function codeChanged() {if(suppressEditor||!state.current||state.loading||state.importing)return;progress(state.current.id).code=getCode();scheduleSave(state.current.id);}
   function updateCursor() {let line=1,col=1;if(cm){const p=cm.getCursor();line=p.line+1;col=p.ch+1;}else{const before=$('code').value.slice(0,$('code').selectionStart);line=before.split('\n').length;col=before.length-before.lastIndexOf('\n');}$('cursor-position').textContent='Ln '+line+', Col '+col;}
 
   if(window.CodeMirror){
@@ -94,7 +94,7 @@
     $('code').addEventListener('input',codeChanged);['click','keyup','select'].forEach(e=>$('code').addEventListener(e,updateCursor));
     $('code').addEventListener('keydown',e=>{if(e.key==='Tab'){e.preventDefault();const t=$('code'),start=t.selectionStart,end=t.selectionEnd;t.setRangeText('    ',start,end,'end');codeChanged();updateCursor();}});
   }
-  function setEditorEnabled(enabled){if(cm)cm.setOption('readOnly',!enabled);$('code').disabled=!enabled;$('notes').disabled=!enabled;$('stdin').disabled=!enabled;['reset-code','download-code','favorite'].forEach(id=>$(id).disabled=!enabled);updateExecutionButtons();}
+  function setEditorEnabled(enabled){enabled=enabled&&!state.importing;if(cm)cm.setOption('readOnly',!enabled);$('code').disabled=!enabled;$('notes').disabled=!enabled;$('stdin').disabled=!enabled;['reset-code','download-code','favorite'].forEach(id=>$(id).disabled=!enabled);updateExecutionButtons();}
   function updateExecutionButtons(){['run','submit'].forEach(id=>$(id).disabled=state.busy||state.loading||!state.current);}
   setEditorEnabled(false);
 
@@ -153,7 +153,7 @@
     try{const data=await api('/api/problems/'+id+'/solution');if(state.current?.id!==id||state.loading)return;
       const view=$('solution-view');view.replaceChildren();const head=el('div','section-heading');head.append(el('h2','','参考题解'),el('span','muted','Python 3 · ACM'));view.append(head,el('div','solution-explanation',data.explanation));
       const code=el('pre','solution-code',data.solution);view.append(code);const actions=el('div','solution-actions');const copy=el('button','secondary-button');copy.append(icon('copy'),document.createTextNode('复制代码'));copy.onclick=()=>copyText(data.solution);
-      const apply=el('button','secondary-button','放入编辑器');apply.onclick=()=>{if(state.current?.id!==id)return;if(!confirm('用参考解法替换当前代码？当前代码将被覆盖。'))return;setCode(data.solution);codeChanged();toast('参考解法已放入编辑器');};actions.append(copy,apply);view.append(actions);
+      const apply=el('button','secondary-button','放入编辑器');apply.onclick=()=>{if(state.current?.id!==id||state.loading||state.importing)return;if(!confirm('用参考解法替换当前代码？当前代码将被覆盖。'))return;setCode(data.solution);codeChanged();toast('参考解法已放入编辑器');};actions.append(copy,apply);view.append(actions);
     }catch(err){if(state.current?.id===id)$('solution-view').replaceChildren(errorView(err,()=>loadSolution(id)));}
   }
   async function loadSubmissions(id){
@@ -166,7 +166,7 @@
       data.submissions.forEach(sub=>{
         const row=el('button','submission-row'),primary=el('span','submission-primary');primary.append(el('strong',sub.status==='Accepted'?'accepted':'',statusText[sub.status]||sub.status),el('small','',formatDate(sub.created_at)));
         const meta=el('span','submission-meta',sub.passed+' / '+sub.total+' 用例 · '+formatTime(sub.elapsed_ms));row.append(primary,meta,icon('right'));
-        row.onclick=()=>{details.replaceChildren(el('h3','','本次提交的代码'),el('pre','submission-code',sub.code));const restore=el('button','secondary-button','恢复这份代码');restore.onclick=()=>{if(state.current?.id!==id)return;if(!confirm('用这次提交的代码替换当前代码？'))return;setCode(sub.code);codeChanged();toast('已恢复提交代码');};details.append(restore);details.scrollIntoView({behavior:'smooth',block:'nearest'});};view.append(row);
+        row.onclick=()=>{details.replaceChildren(el('h3','','本次提交的代码'),el('pre','submission-code',sub.code));const restore=el('button','secondary-button','恢复这份代码');restore.onclick=()=>{if(state.current?.id!==id||state.loading||state.importing)return;if(!confirm('用这次提交的代码替换当前代码？'))return;setCode(sub.code);codeChanged();toast('已恢复提交代码');};details.append(restore);details.scrollIntoView({behavior:'smooth',block:'nearest'});};view.append(row);
       });view.append(details);
     }catch(err){if(state.current?.id===id&&request===submissionRequest)$('submissions-view').replaceChildren(errorView(err,()=>loadSubmissions(id)));}
   }
@@ -240,8 +240,37 @@
     if(state.busy){toast('请等待当前代码运行结束后再导入备份');return;}
     if(file.size>50*1024*1024){toast('备份文件过大，请使用小于 50 MB 的 JSON 文件');return;}
     if(!confirm('导入后会合并备份中的进度、代码和笔记。相同题目的当前数据可能被覆盖，建议先导出备份。继续导入？'))return;
-    const button=$('import-data');button.disabled=true;state.importing=true;state.busy=true;setEditorEnabled(false);
-    try{const data=JSON.parse(await file.text());await flushAll();if(state.errors.size)throw new Error('当前草稿未能保存，请恢复连接后重试。');await api('/api/import',data);const boot=await api('/api/bootstrap');state.progress=boot.progress||{};state.token=boot.token;const id=state.current?.id;state.current=null;state.cache.clear();renderList();state.importing=false;if(id)await openProblem(id);toast('备份已导入');}catch(e){toast('导入失败：'+e.message);}finally{button.disabled=false;state.importing=false;state.busy=false;setEditorEnabled(!!state.current&&!state.loading);}
+    const button=$('import-data'),id=state.targetId||state.current?.id;
+    let importStarted=false,reloaded=false;
+    // An older problem request must not unlock editing while progress is replaced.
+    state.navigation++;button.disabled=true;state.importing=true;state.busy=true;setEditorEnabled(false);
+    try{
+      const data=JSON.parse(await file.text());await flushAll();
+      if(state.errors.size)throw new Error('当前草稿未能保存，请恢复连接后重试。');
+      importStarted=true;
+      // A lost response can still mean the server merged the backup. Reload in
+      // either case before allowing stale browser drafts to be saved again.
+      try{await api('/api/import',data);}
+      finally{
+        const boot=await api('/api/bootstrap');
+        state.progress=boot.progress||{};state.token=boot.token;state.current=null;state.cache.clear();reloaded=true;renderList();
+      }
+      toast('备份已导入');
+    }catch(e){
+      if(importStarted&&!reloaded){
+        state.current=null;state.loading=false;activateTab('description');
+        $('description-view').replaceChildren(errorView(new Error('无法重新加载导入后的进度，请刷新页面后继续。\n'+e.message),()=>location.reload()));
+        toast('进度同步失败，请刷新页面后继续');
+      }else toast('导入失败：'+e.message);
+    }
+    finally{
+      if(!importStarted||reloaded){
+        state.importing=false;state.busy=false;
+        if(id)await openProblem(id);
+        button.disabled=false;
+      }
+      setEditorEnabled(!!state.current&&!state.loading);
+    }
   };
 
   function divider(id,axis){const node=$(id);let start;

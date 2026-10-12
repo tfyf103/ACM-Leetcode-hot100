@@ -6,7 +6,7 @@
 
 ## 开始使用
 
-安装 Python **3.9 或更高版本**，下载并解压本仓库，在项目目录运行：
+安装 Python **3.9 或更高版本**（已有 Miniconda / Anaconda 也可以直接使用），下载并解压本仓库，在项目目录运行：
 
 ```bash
 python app.py
@@ -14,10 +14,21 @@ python app.py
 
 浏览器会自动打开 <http://127.0.0.1:8765>。终端保持运行，结束时按 `Ctrl+C`。
 
-- **Windows**：可以直接双击 `start.bat`；也可执行 `py -3 app.py`。
+- **Windows**：直接双击 `start.bat`。脚本会验证 Python 是否可用，支持项目 `.venv`、已激活的 Conda 环境、PATH、Python 启动器、Conda 登记的安装位置和常见安装目录；不会因为存在一个失效的 `py` 启动器就停止查找。
 - **macOS / Linux**：执行 `python3 app.py` 或 `sh start.sh`。
 - 端口被占用：`python app.py --port 8766`。
 - 不自动打开浏览器：`python app.py --no-browser`。
+
+Windows 启动脚本也支持这些参数，例如 `start.bat --port 8766 --no-browser`。执行 `start.bat --check` 只检查解释器，不启动服务。脚本使用 Windows 自带的 Windows PowerShell，不需要安装额外依赖。
+
+如果 Miniconda 安装在自定义目录且未被自动找到，可以在 Anaconda Prompt 中进入项目目录再运行 `start.bat`，或在命令提示符中指定 Python 的完整路径：
+
+```bat
+set "ACM_PYTHON=E:\Miniconda3\python.exe"
+start.bat
+```
+
+`ACM_PYTHON` 优先于自动检测；设置后若该解释器不可用，脚本会提示错误。启动时会显示实际使用的解释器路径，判题也使用同一个 Python。无需重新安装 Python、修改全局 PATH 或执行 `pip install`。
 
 也可以使用 Git：
 
@@ -70,6 +81,8 @@ if __name__ == '__main__':
 
 「运行」只执行你当前的 stdin，不增加已完成数量；「提交」才检查整套测试。运行时使用启动应用的同一 Python 解释器。
 
+当前单用例时限为 5 秒，整次提交时限为 35 秒；自定义输入最多 4 MiB，标准输出和错误输出合计最多 32 MiB。这些上限覆盖题库中大量枚举结果的合法用例；运行时间仍会受到本机性能影响。
+
 ## 保存与迁移
 
 进度、草稿、笔记和提交记录保存在项目的 `.local/` 目录中，已排除 Git 跟踪。请勿删除该目录，除非确实想清空练习记录。可以在网页中导出 JSON 备份，并在另一台电脑导入。
@@ -91,8 +104,10 @@ python -m unittest discover -s tests -v
 python tools/verify_catalog.py
 ```
 
+如已安装 Node.js，可额外运行 `node --test tests/test_frontend.js` 检查备份导入与草稿保存的异步回归；Node.js 仅用于这组开发测试，日常刷题不需要安装。
+
 结构：`app.py`（HTTP / 持久化）、`judge.py`（运行及判题）、`catalog/`（题库）、`static/`（离线网页）。不需要前端构建步骤。
 
-本次验证（2026-10-12，Windows / Python 3.13）：100 题的 **540** 个固定测试全部通过；**15** 个手工多解及错误答案检查通过；**26** 项后台回归测试通过。浏览器实际验证了运行、正确/错误提交、切题草稿、题解、提交记录、笔记、收藏、主题及刷新保存。macOS/Linux 启动路径已实现，尚未在对应系统实机验收。
+本次验证（2026-10-12，Windows / Miniconda Python 3.13）：100 题的 **540** 个固定测试全部通过；**15** 个多解及错误答案检查通过；**40** 项后台、题库边界及 Windows 启动回归通过；**6** 项前端异步回归通过。边界回归包括约 2.4 MB 输入、112 万个三数之和答案、全排列和回文分割的最大输出，以及无 PATH 配置的 Conda 检测和中文路径启动。macOS/Linux 启动路径已实现，尚未在对应系统实机验收。
 
 参考项目及依赖许可证见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。原创实现采用 MIT；CodeMirror 保留其 MIT 声明。界面借鉴 LeetCode 工作台，仅用于个人本地练习，与力扣官方无关联。
