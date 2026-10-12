@@ -6,7 +6,7 @@
 
 ## 开始使用
 
-安装 Python **3.9 或更高版本**，下载并解压本仓库，在项目目录运行：
+安装 Python **3.9 或更高版本**（已有 Miniconda / Anaconda 也可以直接使用），下载并解压本仓库，在项目目录运行：
 
 ```bash
 python app.py
@@ -21,7 +21,7 @@ python app.py
 
 ### Windows / Miniconda 启动
 
-已安装 Miniconda 就不需要再安装一份 Python。`start.bat` 会调用 Windows 自带的 PowerShell，逐一验证 Python 版本和 SQLite 模块，自动跳过不可用的 `py` 启动器与 Microsoft Store 别名；也会查找 Conda 环境记录和各盘根目录的常见安装位置（例如 `E:\Miniconda3`）。不会下载文件、运行 `pip` 或修改系统 PATH。
+已安装 Miniconda 就不需要再安装一份 Python。`start.bat` 会调用 Windows 自带的 PowerShell，逐一验证 Python 版本和 SQLite 模块，自动跳过不可用的 `py` 启动器与 Microsoft Store 别名；也支持项目 .venv、已激活的环境、Python 注册信息、Conda 环境记录和各盘根目录的常见安装位置（例如 `E:\Miniconda3`）。不会下载文件、运行 `pip` 或修改系统 PATH。
 
 ```bat
 start.bat --check
@@ -98,7 +98,7 @@ if __name__ == '__main__':
 
 「运行」只执行你当前的 stdin，不增加已完成数量；「提交」才检查整套测试。运行时使用启动应用的同一 Python 解释器。
 
-自定义输入最多 4 MiB；一般题目输出最多 4 MiB、单个用例限时 2 秒。三数之和可能输出大量合法组合，单独允许 32 MiB 输出和 10 秒；每次提交总限时仍为 35 秒。网页结果区每段最多展示 65,536 个字符并提示截断，判题使用完整输出。
+自定义输入最多 4 MiB；一般题目输出最多 4 MiB、单个用例限时 5 秒。三数之和可能输出大量合法组合，单独允许 32 MiB 输出和 10 秒；每次提交总限时仍为 35 秒。网页结果区每段最多展示 65,536 个字符并提示截断，判题使用完整输出。
 
 ## 保存与迁移
 
@@ -121,10 +121,10 @@ python -m unittest discover -s tests -v
 python tools/verify_catalog.py
 ```
 
-可选前端行为回归：`node tests/test_frontend.cjs`。Node.js 只用于开发测试，日常刷题仍只需 Python。
+可选前端行为回归：`node tests/test_frontend.cjs` 和 `node --test tests/test_frontend.js`。Node.js 只用于开发测试，日常刷题仍只需 Python。
 
 结构：`app.py`（HTTP / 持久化）、`judge.py`（运行及判题）、`catalog/`（题库）、`static/`（离线网页）。不需要前端构建步骤。
 
-本次验证（2026-10-12，Windows / Miniconda Python 3.13.13）：100 题的 **542** 个固定测试全部通过；**15** 个手工多解及错误答案检查通过；**39** 项 Python 回归（34 项后端、5 项 Windows 启动器）通过；**8** 项前端行为回归通过。启动器实测覆盖中文/空格路径、参数传递、Python 不在 PATH、失效的 `py` 启动器和指定解释器。前端本次通过内存 DOM 验证，未重新进行真实浏览器视觉验收。macOS/Linux 尚未实机验收。
+本次验证（2026-10-12，Windows / Miniconda Python 3.13.13）：100 题的 **542** 个固定测试全部通过；**15** 个手工多解及错误答案检查通过；**51** 项 Python 回归（36 项后端、5 项题库边界、10 项 Windows 启动器）通过；**14** 项前端行为回归通过。启动器实测覆盖中文/空格路径、参数传递、Python 不在 PATH、失效的 `py` 启动器和指定解释器。前端本次通过内存 DOM 验证，未重新进行真实浏览器视觉验收。macOS/Linux 尚未实机验收。
 
 参考项目及依赖许可证见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。原创实现采用 MIT；CodeMirror 保留其 MIT 声明。界面借鉴 LeetCode 工作台，仅用于个人本地练习，与力扣官方无关联。

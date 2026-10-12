@@ -54,9 +54,9 @@ class JudgeTests(unittest.TestCase):
         self.assertLessEqual(len(result["stdout"].encode()) + len(result["stderr"].encode()), 16384)
 
     def test_finite_large_output_is_still_rejected(self):
-        result = judge.execute("print('x' * 200000)", "", output_limit=16384)
+        result = judge.execute("print('x' * 200000)", "", output_limit=128 * 1024)
         self.assertEqual(result["status"], "Output Limit Exceeded")
-        self.assertLessEqual(len(result["stdout"]), 16384)
+        self.assertLessEqual(len(result["stdout"]), 128 * 1024)
 
     def test_valid_large_output_is_supported(self):
         result = judge.execute("print('x' * 2400000)", "")
@@ -111,6 +111,20 @@ class JudgeTests(unittest.TestCase):
         self.assertEqual(result["status"], "Finished")
         self.assertEqual(result["stdout"], "done\n")
         self.assertLess(time.monotonic() - started, 2)
+
+    def test_child_tree_without_inherited_output_is_cleaned(self):
+        # A descendant can keep the temporary working directory open even after
+        # the parent and both output readers have already finished.
+        code = ("import subprocess, sys\n"
+                "subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(10)'], "
+                "stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)\n"
+                "print('done')\n")
+        started = time.monotonic()
+        for _ in range(5):
+            result = judge.execute(code, "")
+            self.assertEqual(result["status"], "Finished")
+            self.assertEqual(result["stdout"], "done\n")
+        self.assertLess(time.monotonic() - started, 5)
 
 
 class HttpTests(unittest.TestCase):
@@ -201,11 +215,19 @@ class HttpTests(unittest.TestCase):
         self.assertEqual((status, result["status"], result["stdout"]), (200, "Finished", "6\n"))
         self.assertEqual(self.request("GET", "/api/bootstrap")[2]["progress"], {})
 
-    def test_run_accepts_large_custom_stdin(self):
+    def test_maximum_catalog_array_input_can_run(self):
+        # Problem 4 allows two arrays of 100,000 values in [-10^9, 10^9].
+        stdin = "100000 100000\n" + ("-1000000000 " * 100000 + "\n") * 2
         status, _, result = self.request("POST", "/api/run", {
-            "problem_id": 1, "code": SOLUTION, "stdin": " " * 2400000 + "2 4",
+            "problem_id": 1, "code": "import sys; print(len(sys.stdin.read().split()))", "stdin": stdin,
         })
-        self.assertEqual((status, result["status"], result["stdout"]), (200, "Finished", "6\n"))
+        self.assertEqual((status, result["status"], result["stdout"]), (200, "Finished", "200002\n"))
+
+    def test_custom_input_remains_bounded(self):
+        status = self.request("POST", "/api/run", {
+            "problem_id": 1, "code": "print(1)", "stdin": "x" * (app.MAX_STDIN + 1),
+        })[0]
+        self.assertEqual(status, 413)
 
     def test_run_uses_problem_output_limit(self):
         with patch.dict(self.server.application.problems[1], {"output_limit": 128}):

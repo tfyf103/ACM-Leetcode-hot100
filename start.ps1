@@ -31,6 +31,7 @@ if (!$override -and (Test-Path -LiteralPath $configPath)) {
 if ($override) {
     Add-PythonCandidate $override
 } else {
+    Add-PythonRoot (Join-Path $PSScriptRoot '.venv\Scripts')
     Add-PythonRoot $env:CONDA_PREFIX
     if ($env:VIRTUAL_ENV) { Add-PythonRoot (Join-Path $env:VIRTUAL_ENV 'Scripts') }
     foreach ($name in @('python.exe', 'python3.exe', 'py.exe')) {
@@ -59,6 +60,20 @@ if ($override) {
         if (!$root) { continue }
         foreach ($name in @('miniconda3', 'anaconda3', 'miniforge3', 'mambaforge')) {
             Add-PythonRoot (Join-Path $root $name)
+        }
+    }
+    foreach ($key in @('HKCU:\Software\Python\PythonCore',
+                        'HKLM:\Software\Python\PythonCore',
+                        'HKLM:\Software\WOW6432Node\Python\PythonCore')) {
+        foreach ($version in @(Get-ChildItem -LiteralPath $key -ErrorAction SilentlyContinue)) {
+            $install = Get-Item -LiteralPath ($version.PSPath + '\InstallPath') -ErrorAction SilentlyContinue
+            if ($install) {
+                if ($install.GetValue('ExecutablePath')) {
+                    Add-PythonCandidate $install.GetValue('ExecutablePath')
+                } else {
+                    Add-PythonRoot $install.GetValue('')
+                }
+            }
         }
     }
 }

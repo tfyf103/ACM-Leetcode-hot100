@@ -254,17 +254,36 @@
     if(state.loading){toast('请等待题目加载完成后再导入备份');return;}
     if(file.size>32*1024*1024){toast('备份文件过大，请使用不超过 32 MiB 的 JSON 文件');return;}
     if(!confirm('导入后会合并备份中的进度、代码和笔记。相同题目的当前数据可能被覆盖，建议先导出备份。继续导入？'))return;
-    setBackupBusy(true);state.importing=true;setEditorEnabled(false);++submissionRequest;
-    let imported=false;
+    const id=state.current?.id||state.targetId||state.problems[0]?.id;
+    let importStarted=false,imported=false,reloaded=false;
+    // An older problem request must not unlock editing while progress is replaced.
+    state.navigation++;++submissionRequest;setBackupBusy(true);state.importing=true;setEditorEnabled(false);
     try{
-      const data=JSON.parse(await file.text());await flushAll();if(state.errors.size)throw new Error('当前草稿未能保存，请恢复连接后重试。');
-      await api('/api/import',data);imported=true;
-      const boot=await api('/api/bootstrap');state.progress=boot.progress||{};state.token=boot.token;state.reloadRequired=false;
-      const id=state.current?.id||state.targetId||state.problems[0]?.id;state.current=null;state.cache.clear();state.results.clear();renderList();state.importing=false;if(id)await openProblem(id);toast('备份已导入');
+      const data=JSON.parse(await file.text());await flushAll();
+      if(state.errors.size)throw new Error('当前草稿未能保存，请恢复连接后重试。');
+      importStarted=true;
+      // A lost response can still mean the server merged the backup. Reload in
+      // either case before allowing stale browser drafts to be saved again.
+      try{await api('/api/import',data);imported=true;}
+      finally{
+        const boot=await api('/api/bootstrap');
+        state.progress=boot.progress||{};state.token=boot.token;state.reloadRequired=false;
+        state.current=null;state.cache.clear();state.results.clear();reloaded=true;renderList();
+      }
+      toast('备份已导入');
     }catch(e){
-      if(imported){state.current=null;state.loading=false;state.reloadRequired=true;$('description-view').replaceChildren(errorView(new Error('备份已导入，但页面刷新失败。请刷新页面后继续，避免覆盖导入的数据。\n'+e.message),()=>location.reload()));activateTab('description');toast('备份已导入，请刷新页面重新加载');}
-      else toast('导入失败：'+e.message);
-    }finally{state.importing=false;setBackupBusy(false);setEditorEnabled(!!state.current&&!state.loading);}
+      if(importStarted&&!reloaded){
+        state.current=null;state.loading=false;state.reloadRequired=true;activateTab('description');
+        const message=imported?'备份已导入，但页面刷新失败。请刷新页面后继续，避免覆盖导入的数据。':'无法确认导入后的进度，请刷新页面后继续。';
+        $('description-view').replaceChildren(errorView(new Error(message+'\n'+e.message),()=>location.reload()));
+        toast(imported?'备份已导入，请刷新页面重新加载':'进度同步失败，请刷新页面后继续');
+      }else toast('导入失败：'+e.message);
+    }
+    finally{
+      state.importing=false;setBackupBusy(false);
+      if(!state.reloadRequired&&id)await openProblem(id);
+      setEditorEnabled(!!state.current&&!state.loading);
+    }
   };
 
   function divider(id,axis){const node=$(id);let start;

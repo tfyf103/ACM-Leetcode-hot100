@@ -12,9 +12,11 @@ import sys
 import tempfile
 import threading
 import time
+from contextlib import contextmanager
 from pathlib import Path
 
-CASE_TIMEOUT = 2.0
+# Allow time for large valid inputs and output on desktop systems.
+CASE_TIMEOUT = 5.0
 SUBMISSION_TIMEOUT = 35.0
 # Large arrays and interval lists can legitimately print several megabytes.
 # Enumeration problems may opt into a larger per-problem limit.
@@ -103,6 +105,25 @@ def _windows_job(process):
         return None
 
 
+@contextmanager
+def _working_directory():
+    directory = tempfile.TemporaryDirectory(prefix="acm-hot100-")
+    try:
+        yield directory.name
+    finally:
+        # Closing a Windows job kills its children asynchronously. Even a child
+        # that closed its output pipes can briefly retain the working directory.
+        deadline = time.monotonic() + 3
+        while True:
+            try:
+                directory.cleanup()
+                break
+            except PermissionError:
+                if os.name != "nt" or time.monotonic() >= deadline:
+                    raise
+                time.sleep(0.02)
+
+
 def execute(code, stdin, timeout=CASE_TIMEOUT, output_limit=OUTPUT_LIMIT):
     started = time.monotonic()
     buffers = {"stdout": bytearray(), "stderr": bytearray()}
@@ -110,14 +131,16 @@ def execute(code, stdin, timeout=CASE_TIMEOUT, output_limit=OUTPUT_LIMIT):
     output_lock = threading.Lock()
     exceeded = threading.Event()
     status = "Finished"
-    with tempfile.TemporaryDirectory(prefix="acm-hot100-") as directory:
+    with _working_directory() as directory:
         script = Path(directory) / "main.py"
         script.write_text(code, encoding="utf-8")
         options = {"start_new_session": True} if os.name != "nt" else {
             "creationflags": subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP,
         }
         process = subprocess.Popen(
-            [sys.executable, "-I", "-X", "utf8", "-u", str(script)],
+            # Batch programs should retain normal stdout buffering: unbuffered
+            # print(*values) performs a pipe write for every token and separator.
+            [sys.executable, "-I", "-X", "utf8", str(script)],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             cwd=directory, **options
         )
@@ -167,7 +190,7 @@ def execute(code, stdin, timeout=CASE_TIMEOUT, output_limit=OUTPUT_LIMIT):
                     break
                 exceeded.wait(min(0.01, max(0, deadline - time.monotonic())))
         finally:
-            # Closing the job/group also kills children left by a finished parent.
+            # Terminate the job/group, including children of a finished parent.
             if close_job is not None:
                 close_job()
             _terminate(process)
