@@ -209,6 +209,14 @@ def execute(code, stdin, timeout=CASE_TIMEOUT, output_limit=OUTPUT_LIMIT):
 
 
 def matches(actual, expected, mode="tokens"):
+    if mode == "exact":
+        actual = actual.replace("\r\n", "\n")
+        expected = expected.replace("\r\n", "\n")
+        # A final line terminator is optional; internal/trailing spaces and
+        # additional empty lines are significant. Empty output stays empty.
+        if expected:
+            return actual.removesuffix("\n") == expected.removesuffix("\n")
+        return actual == expected
     if mode == "unordered_lines":
         normalize = lambda value: sorted(" ".join(line.split()) for line in
                                          value.splitlines() if line.strip())

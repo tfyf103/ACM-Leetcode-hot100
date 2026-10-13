@@ -17,7 +17,8 @@ class EnrichmentTests(unittest.TestCase):
                 self.assertGreaterEqual(len(problem['examples']), 3)
                 self.assertGreaterEqual(len(problem['clarifications']), 3)
                 self.assertNotIn('按题目要求读取输入，输出上述结果', str(problem['examples']))
-                self.assertIn('\n\n', problem['description'])
+                if problem['id'] in catalog.HOT100_ORDER:
+                    self.assertIn('\n\n', problem['description'])
 
     def test_finite_parameter_domains_are_complete(self):
         for problem_id, maximum in ((22, 8), (51, 9)):
@@ -44,7 +45,8 @@ class EnrichmentTests(unittest.TestCase):
                 if case['input'] in seen:
                     self.assertEqual(seen[case['input']], case['output'])
                 seen[case['input']] = case['output']
-            self.assertTrue(entries[str(problem['id'])]['tests'])
+            if problem['id'] in catalog.HOT100_ORDER:
+                self.assertTrue(entries[str(problem['id'])]['tests'])
 
 
 if __name__ == '__main__':

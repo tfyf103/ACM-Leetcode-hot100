@@ -91,3 +91,9 @@
 @media(max-width:1100px){.guide-hero{padding:20px}.guide-title{font-size:22px}.guide-section-heading h3{font-size:15px}.guide-question{padding:14px}}
 @media(max-width:400px){.guide-hero{padding:17px}.guide-title{font-size:21px}.guide-memory-card{padding:13px 14px}.guide-memory-card p{font-size:15px}.guide-metrics{gap:7px}.guide-metric{padding:10px}.guide-metric p{font-size:12px}.guide-question{padding:12px}.guide-invariant{padding:14px}.guide-section-number{padding:4px}.guide-section-heading{gap:8px}.guide-jumps{gap:10px}}
 @media(prefers-reduced-motion:reduce){.guide-hint summary:before,.guide-answer summary:before,.guide-deeper>summary:before{transition:none}}
+
+/* ACM input/output exercises explain the output-format contract. */
+.io-format-notice{padding:11px 14px;margin:0 0 24px;border-left:3px solid var(--blue);border-radius:0 6px 6px 0;background:var(--input);font-size:12px;line-height:1.8;color:var(--text)}
+.list-meta{gap:10px;flex-wrap:wrap}
+.problem-item .problem-id{font-variant-numeric:tabular-nums}
+.guide-copy,.guide-hook,.guide-state-table td,.guide-state-table caption,.guide-invariant-statement,.guide-recall-steps li,.guide-self-check h4{white-space:pre-wrap}

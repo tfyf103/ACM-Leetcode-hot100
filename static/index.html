@@ -11,7 +11,7 @@
 </head>
 <body>
   <header class="navbar">
-    <a class="brand" href="#1" aria-label="ACM Hot 100 首页"><span class="brand-mark" aria-hidden="true">〈<b>/</b>〉</span><span>ACM <strong>Hot 100</strong></span></a>
+    <a id="home" class="brand" href="#" aria-label="ACM Hot 100 首页"><span class="brand-mark" aria-hidden="true">〈<b>/</b>〉</span><span>ACM <strong>Hot 100</strong></span></a>
     <span class="nav-separator"></span>
     <button id="list-toggle" class="nav-button" title="打开题单" aria-label="打开题单"><span data-icon="list"></span><span>题目列表</span></button>
     <button id="previous" class="icon-button" title="上一题" aria-label="上一题"><span data-icon="left"></span></button>
@@ -62,11 +62,11 @@
   </main>
 
   <div id="drawer-backdrop" class="backdrop" hidden></div>
-  <aside id="problem-drawer" class="problem-drawer" aria-label="Hot 100 题目列表" aria-hidden="true" inert>
-    <div class="drawer-header"><div><div class="eyebrow">STUDY PLAN</div><h2>LeetCode 热题 100</h2><p>以 ACM 模式，练好每一道经典题。</p></div><button id="close-list" class="icon-button" title="关闭题单" aria-label="关闭题单"><span data-icon="close"></span></button></div>
-    <div class="progress-card"><div class="progress-top"><span>练习进度</span><span><strong id="solved-count">0</strong><span class="muted"> / <span id="total-count">100</span></span></span></div><div class="progress-track"><div id="progress-fill"></div></div><div id="difficulty-progress" class="difficulty-progress"></div></div>
+  <aside id="problem-drawer" class="problem-drawer" aria-label="ACM 基础与热题 100 题目列表" aria-hidden="true" inert>
+    <div class="drawer-header"><div><div class="eyebrow">STUDY PLAN</div><h2>ACM 基础与热题 100</h2><p>先练输入输出，再用 ACM 模式攻克经典题。</p></div><button id="close-list" class="icon-button" title="关闭题单" aria-label="关闭题单"><span data-icon="close"></span></button></div>
+    <div class="progress-card"><div class="progress-top"><span>练习进度</span><span><strong id="solved-count">0</strong><span class="muted"> / <span id="total-count">…</span></span></span></div><div class="progress-track"><div id="progress-fill"></div></div><div id="difficulty-progress" class="difficulty-progress"></div></div>
     <div class="drawer-filters"><div class="search-box"><span data-icon="search"></span><input id="problem-search" type="search" placeholder="搜索题号、题名" aria-label="搜索题目"><kbd>/</kbd></div><div class="filter-row"><select id="category-filter" aria-label="按分类筛选"><option value="">全部分类</option></select><select id="difficulty-filter" aria-label="按难度筛选"><option value="">全部难度</option><option value="Easy">简单</option><option value="Medium">中等</option><option value="Hard">困难</option></select><select id="status-filter" aria-label="按状态筛选"><option value="">全部状态</option><option value="solved">已通过</option><option value="attempted">尝试过</option><option value="todo">未开始</option><option value="favorite">已收藏</option></select></div></div>
-    <div class="list-meta"><span id="filtered-count">100 道题目</span><span>按经典题单顺序</span></div><div id="problem-list" class="problem-list"></div>
+    <div class="list-meta"><span id="filtered-count">正在加载…</span><span>先输入输出基础，再经典题单</span></div><div id="problem-list" class="problem-list"></div>
     <div class="drawer-footer"><span data-icon="lock"></span>代码、笔记和记录保存在你的电脑上</div>
   </aside>
 

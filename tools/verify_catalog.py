@@ -49,12 +49,21 @@ OFFICIAL = {pid: (category, "Easy" if pid in EASY else
             for category, ids in OFFICIAL_GROUPS.items() for pid in ids}
 TEXT_FIELDS = ("title", "slug", "difficulty", "category", "description",
                "input_format", "output_format", "starter", "solution", "explanation")
-MODES = {"tokens", "float", "unordered_lines", "unordered_tokens"}
+IO_IDS = set(range(10001, 10013))
+MODES = {"tokens", "float", "unordered_lines", "unordered_tokens", "exact"}
 GARBAGE = "__THIS_IS_NOT_A_VALID_ANSWER__\n"
 
 
 def compare(actual, expected, mode):
     """Independent implementation of the documented output contract."""
+    if mode == "exact":
+        got, wanted = actual.replace("\r\n", "\n"), expected.replace("\r\n", "\n")
+        if wanted:
+            if got.endswith("\n"):
+                got = got[:-1]
+            if wanted.endswith("\n"):
+                wanted = wanted[:-1]
+        return got == wanted
     if mode == "tokens":
         return actual.split() == expected.split()
     if mode == "unordered_tokens":
@@ -140,7 +149,14 @@ def schema_errors(problem):
             errors.append(key + " must be a nonempty string")
         elif "\ufffd" in problem[key]:
             errors.append(key + " contains a Unicode replacement character")
-    if pid not in OFFICIAL:
+    if pid in IO_IDS:
+        if problem.get("category") != "ACM 输入输出基础" or problem.get("track") != "acm_io":
+            errors.append("IO problem must belong to the IO basics topic")
+        if problem.get("display_id") != "IO-%02d" % (pid-10000) or problem.get("difficulty") != "Easy":
+            errors.append("invalid IO display ID or difficulty")
+        if problem.get("compare") != "exact":
+            errors.append("IO exercises must check exact output formatting")
+    elif pid not in OFFICIAL:
         errors.append("ID is not in the official Hot 100 study plan")
     else:
         category, difficulty = OFFICIAL[pid]
@@ -238,9 +254,13 @@ def verify_problem(problem, checker, timeout):
             options = {"creationflags": subprocess.CREATE_NO_WINDOW} if os.name == "nt" else {}
             try:
                 run = subprocess.run([sys.executable, "-I", "-X", "utf8", str(script)],
-                                     input=stdin, capture_output=True, text=True,
-                                     encoding="utf-8", errors="replace", cwd=directory,
+                                     input=stdin.encode("utf-8"), capture_output=True,
+                                     cwd=directory,
                                      timeout=timeout, **options)
+                # Text-mode stdin would turn CRLF into CRCRLF on Windows.
+                # Preserve fixtures as bytes, like the real judge runner.
+                run.stdout = run.stdout.decode("utf-8", errors="replace")
+                run.stderr = run.stderr.decode("utf-8", errors="replace")
                 executed += 1
                 if run.returncode:
                     errors.append(label + ": reference runtime error " + short(run.stderr))
@@ -333,20 +353,22 @@ def main(argv=None):
             errors.append("requested IDs absent: " + str(sorted(missing)))
         problems = [p for p in problems if p["id"] in args.id]
     else:
-        missing, extra = set(OFFICIAL) - all_ids, all_ids - set(OFFICIAL)
+        expected_ids = set(OFFICIAL) | IO_IDS
+        missing, extra = expected_ids - all_ids, all_ids - expected_ids
         if missing:
             errors.append("missing official IDs: " + str(sorted(missing)))
         if extra:
             errors.append("unexpected IDs: " + str(sorted(extra)))
-        if len(problems) != 100:
-            errors.append("expected exactly 100 problems, found %d" % len(problems))
+        if len(problems) != 112:
+            errors.append("expected 100 Hot 100 and 12 IO exercises, found %d" % len(problems))
         counts = Counter(p.get("category") for p in problems)
         wanted = Counter({category: len(ids) for category, ids in OFFICIAL_GROUPS.items()})
+        wanted["ACM 输入输出基础"] = 12
         if counts != wanted:
             errors.append("category counts differ: actual=" + str(dict(counts)))
         difficulty = Counter(p.get("difficulty") for p in problems)
-        if difficulty != Counter(Easy=20, Medium=68, Hard=12):
-            errors.append("difficulty totals must be Easy=20, Medium=68, Hard=12; actual=" +
+        if difficulty != Counter(Easy=32, Medium=68, Hard=12):
+            errors.append("difficulty totals must be Easy=32, Medium=68, Hard=12; actual=" +
                           str(dict(difficulty)))
         for pid in checkers.keys() - all_ids:
             errors.append("checker without problem: #%s" % pid)
