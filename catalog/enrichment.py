@@ -8,12 +8,14 @@ def apply_enrichment(problems):
     entries = json.loads(Path(__file__).with_name("enrichment.json").read_text(encoding="utf-8"))
     tutorials = json.loads(Path(__file__).with_name("tutorials.json").read_text(encoding="utf-8"))
     solutions = json.loads(Path(__file__).with_name("optimal_solutions.json").read_text(encoding="utf-8"))
+    guides = json.loads(Path(__file__).with_name("guides.json").read_text(encoding="utf-8"))
     ids = {str(problem["id"]) for problem in problems}
-    if set(entries) != ids or set(tutorials) != ids or not set(solutions) <= ids:
+    if set(entries) != ids or set(tutorials) != ids or set(guides) != ids or not set(solutions) <= ids:
         raise ValueError("Enrichment must cover the complete catalog exactly")
     for problem in problems:
         entry = entries[str(problem["id"])]
         tutorial = tutorials[str(problem["id"])]
+        tutorial["guide"] = guides[str(problem["id"])]
         problem["tutorial"] = tutorial
         problem["explanation"] = "\n\n".join(
             section["title"] + "\n" + section["text"] for section in tutorial["sections"])

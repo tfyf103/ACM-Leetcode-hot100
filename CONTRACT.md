@@ -24,6 +24,18 @@ The flat `explanation` is derived from these sections for compatibility.
 Optimized programs replace `solution` before either runtime or verifier uses it.
 Tutorial text is rendered as plain text with semantic headings, never as HTML.
 
+The complete catalog additionally loads `guides.json` into `tutorial.guide`.
+Version 2 fields: `hook`, `goal`, `recognition {signals,pattern,why}`,
+`dialogue [{question,hint,answer}]`, `walkthrough {input,columns,rows,conclusion}`,
+`invariant {statement,reason}`, `recall {mnemonic,steps,skeleton}`,
+`self_check [{question,answer}]`, `complexity {time,space,reason,optimality}`.
+The builder and verifier check exact coverage and field/table integrity.
+Each authored lesson has at least three discovery questions and two retrieval
+questions. Memory skeletons are illustrative plain text, not executable programs.
+Native details/summary keep hints and answers independently revealable; the
+full-reading toggle opens instructional answers only and changes no saved drafts
+or global preferences. Legacy sections and flat solution payloads remain supported.
+
 Optional per-problem fields: output_limit (positive int bytes, at most 32 MiB; default 4 MiB) and case_timeout (finite positive seconds, at most 35; default 5). Both custom runs and submissions must honor these fields. Overall submission timeout remains 35 seconds. Problem #15 uses 32 MiB / 10 seconds for its quadratic number of valid triples. HTTP stdin limit is 4 MiB and normal request body limit is 8 MiB.
 
 ## HTTP API

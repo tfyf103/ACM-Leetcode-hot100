@@ -14,7 +14,7 @@ function setup() {
     append(...nodes){this.children.push(...nodes);}
     replaceChildren(...nodes){this.children=nodes;}
     get lastElementChild(){return this.children.at(-1)||(this.children[0]=new Element());}
-    setAttribute(){} removeAttribute(){} addEventListener(){} focus(){} scrollIntoView(){} remove(){} click(){} close(){} showModal(){}
+    setAttribute(name,value){(this.attributes ||= {})[name]=value;} removeAttribute(name){if(this.attributes)delete this.attributes[name];} addEventListener(){} focus(){} scrollIntoView(){} remove(){} click(){} close(){} showModal(){}
     querySelectorAll(selector){return this.children.flatMap(c=>[...(selector==='*'||selector.startsWith('.')&&c.className.split(' ').includes(selector.slice(1))?[c]:[]),...c.querySelectorAll(selector)]);}
   }
   const nodes=new Map(),get=id=>{if(!nodes.has(id))nodes.set(id,new Element());return nodes.get(id);};
@@ -28,6 +28,51 @@ function setup() {
   return {api:context.testApi,nodes,get,calls,stored,problem,setHandler:h=>handler=h};
 }
 const tests=[];const test=(name,fn)=>tests.push([name,fn]);
+function guidedPayload(){
+  return {solution:'print(1)',explanation:'legacy explanation',tutorial:{approach:'Hash table',sections:[{title:'Proof',text:'Detailed proof'}],guide:{
+    version:2,hook:'If we know one number, what is missing?',goal:'Recognize the complement',
+    recognition:{signals:['Return two positions','Target sum'],pattern:'Lookup earlier numbers',why:'Reuse a stored position'},
+    dialogue:[{question:'Can we try every pair?',hint:'Count the repeated comparisons',answer:'Quadratic pair search'},{question:'What do we need to remember?',hint:'The earlier position',answer:'Store a hash table'}],
+    walkthrough:{input:'nums=[2,7], target=9',columns:['Current','Need','Seen'],rows:[['2','7','{}'],['7','2','{2:0}']],conclusion:'Return [0,1]'},
+    invariant:{statement:'Only earlier positions are stored',reason:'Different positions are required'},
+    recall:{mnemonic:'Find first, store second',steps:['Create a table','Look up the complement','Save this position'],skeleton:'seen = {}\nfor i, x in enumerate(nums):\n    ...'},
+    self_check:[{question:'Why check before inserting?',answer:'Do not reuse this position'},{question:'What if two values are equal?',answer:'Different positions can still work'}],
+    complexity:{time:'Expected O(n)',space:'O(n)',reason:'One lookup and insertion per number',optimality:'Must read the input'}
+  }}};
+}
+
+test('guided tutorials render the actual title, state table and memory skeleton without changing code',async()=>{
+  const {api,get,setHandler}=setup(),payload=guidedPayload();setHandler(()=>payload);await api.loadSolution(1);const view=get('solution-view');
+  assert.equal(view.querySelectorAll('.guide-title')[0].textContent,'1. Problem 1');
+  assert.equal(view.querySelectorAll('.guide-question').length,2);assert.equal(view.querySelectorAll('.guide-section').length,7);
+  const table=view.querySelectorAll('.guide-state-table')[0];assert.equal(table.children[0].tagName,'CAPTION');assert.equal(table.children[0].textContent,payload.tutorial.guide.walkthrough.input);
+  assert.deepEqual(table.children[1].children[0].children.map(c=>c.textContent),payload.tutorial.guide.walkthrough.columns);
+  assert.ok(table.children[1].children[0].children.every(c=>c.attributes.scope==='col'));
+  assert.deepEqual(table.children[2].children.map(row=>row.children.map(c=>c.textContent)),payload.tutorial.guide.walkthrough.rows);
+  assert.equal(view.querySelectorAll('.guide-table-scroll')[0].tabIndex,0);assert.equal(view.querySelectorAll('.guide-skeleton')[0].textContent,payload.tutorial.guide.recall.skeleton);
+  assert.equal(get('code').value,'old code');assert.equal(api.state.revisions[1],undefined);
+});
+
+test('reading mode reveals and closes answers locally while hints and proof stay independently collapsed',async()=>{
+  const {api,get,setHandler,stored,calls}=setup();setHandler(()=>guidedPayload());await api.loadSolution(1);const view=get('solution-view'),answers=view.querySelectorAll('.guide-answer'),hints=view.querySelectorAll('.guide-hint'),modes=view.querySelectorAll('.guide-mode');
+  assert.ok(answers.every(answer=>!answer.open));assert.equal(modes[0].attributes['aria-pressed'],'true');const before=[...stored];
+  modes[1].onclick();assert.ok(answers.every(answer=>answer.open));assert.ok(hints.every(hint=>!hint.open));assert.ok(!view.querySelectorAll('.guide-deeper')[0].open);assert.equal(modes[1].attributes['aria-pressed'],'true');
+  modes[0].onclick();assert.ok(answers.every(answer=>!answer.open));assert.equal(modes[1].attributes['aria-pressed'],'false');assert.deepEqual([...stored],before);assert.equal(calls.length,1);assert.equal(get('code').value,'old code');
+});
+
+test('guided content remains literal text even in questions, table cells and code skeletons',async()=>{
+  const {api,get,setHandler}=setup(),payload=guidedPayload(),literal='<img src=x onerror=alert(1)>';
+  payload.tutorial.guide.dialogue[0].question=literal;payload.tutorial.guide.dialogue[0].answer=literal;payload.tutorial.guide.walkthrough.rows[0][0]=literal;payload.tutorial.guide.recall.skeleton=literal;
+  setHandler(()=>payload);await api.loadSolution(1);const view=get('solution-view');
+  assert.equal(view.querySelectorAll('.guide-question-heading')[0].children[1].textContent,literal);assert.equal(view.querySelectorAll('.guide-answer')[0].children[1].textContent,literal);assert.equal(view.querySelectorAll('.guide-state-table')[0].children[2].children[0].children[0].textContent,literal);assert.equal(view.querySelectorAll('.guide-skeleton')[0].textContent,literal);
+  assert.equal(view.querySelectorAll('*').some(node=>node.tagName==='IMG'),false);
+});
+
+test('a delayed guided payload cannot replace the next problem or its editor',async()=>{
+  const {api,get,setHandler}=setup(),pending=deferred();setHandler(()=>pending.promise);const request=api.loadSolution(1);
+  api.state.current=api.state.problems[1];get('solution-view').replaceChildren();get('code').value='draft two';pending.resolve(guidedPayload());await request;
+  assert.equal(get('solution-view').querySelectorAll('.guide-hero').length,0);assert.equal(get('code').value,'draft two');assert.equal(api.state.revisions[2],undefined);
+});
 
 test('structured tutorials render headings and plain text without replacing the draft',async()=>{
   const {api,get,setHandler}=setup();const sections=Array.from({length:8},(_,i)=>({title:'Step '+i,text:'<b>literal</b>\nExplanation '+i}));

@@ -122,6 +122,11 @@ def load_parts():
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         module.apply_enrichment(problems)
+        spec = importlib.util.spec_from_file_location("verify_guides", ROOT / "catalog/guide_schema.py")
+        schema = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(schema)
+        schema.validate_guides({str(p["id"]): p["tutorial"]["guide"] for p in problems},
+                               [p["id"] for p in problems])
     except Exception as exc:
         errors.append("catalog enrichment failed: " + repr(exc))
     return problems, checkers, owners, errors

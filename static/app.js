@@ -159,15 +159,65 @@
     if(state.loading||!state.current)return;
     if(tab==='solution')loadSolution(state.current.id);if(tab==='submissions')loadSubmissions(state.current.id);
   }
+  function tutorialSections(view, sections){
+    sections.forEach(section=>{const block=el('section','tutorial-section');block.append(el('h3','',section.title),el('p','tutorial-text',section.text));view.append(block);});
+  }
+  function renderGuidedTutorial(view, tutorial, problem){
+    const guide=tutorial.guide, answers=[];
+    const section=(number,title,subtitle='')=>{
+      const node=el('section','guide-section'),heading=el('div','guide-section-heading');
+      heading.append(el('span','guide-section-number',number),el('h3','',title));node.append(heading);
+      if(subtitle)node.append(el('p','guide-section-intro',subtitle));return node;
+    };
+    const reveal=(label,text,className)=>{
+      const node=el('details',className);node.append(el('summary','',label),el('p','guide-copy',text));return node;
+    };
+    const hero=el('header','guide-hero');hero.append(el('div','guide-eyebrow','从想法到写法 · 引导式题解'),el('h2','guide-title',problem.id+'. '+problem.title),el('span','guide-pattern',tutorial.approach),el('p','guide-hook',guide.hook));
+    const goal=el('p','guide-goal');goal.append(el('strong','','这一题学会什么'),document.createTextNode(guide.goal));hero.append(goal);view.append(hero);
+    const memory=el('div','guide-memory-card');memory.append(el('span','guide-card-label','先带走一句口诀'),el('p','',guide.recall.mnemonic));view.append(memory);
+    const metrics=el('div','guide-metrics');[['时间复杂度',guide.complexity.time],['空间复杂度',guide.complexity.space]].forEach(([label,value])=>{const card=el('div','guide-metric');card.append(el('span','guide-card-label',label),el('p','',value));metrics.append(card);});view.append(metrics);
+
+    const toolbar=el('div','guide-toolbar'),modes=el('div','guide-reading-modes'),stepMode=el('button','guide-mode active','逐步思考'),readMode=el('button','guide-mode','阅读全文');
+    stepMode.type=readMode.type='button';stepMode.setAttribute('aria-pressed','true');readMode.setAttribute('aria-pressed','false');modes.setAttribute('role','group');modes.setAttribute('aria-label','题解阅读方式');modes.append(stepMode,readMode);toolbar.append(modes);
+    const jumps=el('div','guide-jumps');toolbar.append(jumps);view.append(toolbar,el('p','guide-reading-note','先想一想，再展开提示与解答。每一步都能独立展开，也可以切换到全文阅读。'));
+
+    const recognition=section('01','先认出这类问题');recognition.append(el('p','guide-pattern-name',guide.recognition.pattern));const signals=el('ul','guide-signals');guide.recognition.signals.forEach(signal=>signals.append(el('li','',signal)));recognition.append(signals,el('p','guide-copy',guide.recognition.why));view.append(recognition);
+
+    const discovery=section('02','跟着问题，把解法想出来','不用急着背代码。先说出你的想法，再核对下面的推导。');
+    guide.dialogue.forEach((item,index)=>{
+      const card=el('article','guide-question'),heading=el('div','guide-question-heading');heading.append(el('span','guide-question-number',String(index+1).padStart(2,'0')),el('h4','',item.question));card.append(heading);
+      card.append(reveal('给我一点提示',item.hint,'guide-hint'));const answer=reveal('展开解答与推导',item.answer,'guide-answer');answers.push(answer);card.append(answer);discovery.append(card);
+    });view.append(discovery);
+
+    const walkthrough=section('03','手算一遍，看状态怎么变');const table=el('table','guide-state-table'),caption=el('caption','',guide.walkthrough.input);table.append(caption);const tableHead=el('thead'),headerRow=el('tr');
+    guide.walkthrough.columns.forEach(column=>{const cell=el('th','',column);cell.setAttribute('scope','col');headerRow.append(cell);});tableHead.append(headerRow);table.append(tableHead);const tableBody=el('tbody');
+    guide.walkthrough.rows.forEach(row=>{const line=el('tr');row.forEach(value=>line.append(el('td','',value)));tableBody.append(line);});table.append(tableBody);
+    const tableScroll=el('div','guide-table-scroll');tableScroll.tabIndex=0;tableScroll.setAttribute('role','region');tableScroll.setAttribute('aria-label','手算过程状态表，可横向滚动');tableScroll.append(table);walkthrough.append(tableScroll,el('p','guide-takeaway',guide.walkthrough.conclusion));view.append(walkthrough);
+
+    const invariant=section('04','记住这条规则，就不容易写错');invariant.classList.add('guide-invariant');invariant.append(el('p','guide-invariant-statement',guide.invariant.statement),el('p','guide-copy',guide.invariant.reason));view.append(invariant);
+
+    const recall=section('05','从口诀，还原写法','先遮住完整代码，试着按下面的顺序重新写出来。');recall.tabIndex=-1;recall.append(el('p','guide-recall-mnemonic',guide.recall.mnemonic));const steps=el('ol','guide-recall-steps');guide.recall.steps.forEach(item=>steps.append(el('li','',item)));recall.append(steps,el('h4','guide-skeleton-heading','记忆骨架（省略输入输出与部分辅助函数）'),el('pre','guide-skeleton',guide.recall.skeleton));view.append(recall);
+
+    const selfCheck=section('06','合上题解，检验一下理解');guide.self_check.forEach((item,index)=>{const card=el('div','guide-self-check');card.append(el('h4','',String(index+1)+'. '+item.question));const answer=reveal('查看参考回答',item.answer,'guide-answer');answers.push(answer);card.append(answer);selfCheck.append(card);});view.append(selfCheck);
+    const complexity=section('07','为什么快，什么时候选它');complexity.append(el('p','guide-copy',guide.complexity.reason),el('p','guide-optimality',guide.complexity.optimality));view.append(complexity);
+
+    if(tutorial.sections?.length){const deeper=el('details','guide-deeper');deeper.append(el('summary','','深入理解：证明与复杂度细节'));const body=el('div','guide-deeper-body');tutorialSections(body,tutorial.sections);deeper.append(body);view.append(deeper);}
+    const setReadingMode=full=>{answers.forEach(answer=>answer.open=full);stepMode.classList.toggle('active',!full);readMode.classList.toggle('active',full);stepMode.setAttribute('aria-pressed',String(!full));readMode.setAttribute('aria-pressed',String(full));};
+    stepMode.onclick=()=>setReadingMode(false);readMode.onclick=()=>setReadingMode(true);
+    const jump=(label,target)=>{const button=el('button','guide-jump',label);button.type='button';button.onclick=()=>{target.scrollIntoView({behavior:'smooth',block:'start'});target.focus({preventScroll:true});};jumps.append(button);};jump('复习口诀',recall);
+    return {jump};
+  }
   async function loadSolution(id){
     $('solution-view').replaceChildren(loading('正在加载题解…'));
     try{const data=await api('/api/problems/'+id+'/solution');if(state.current?.id!==id||state.loading)return;
-      const view=$('solution-view');view.replaceChildren();const head=el('div','section-heading');head.append(el('h2','','参考题解'),el('span','muted','Python 3 · ACM'));view.append(head);
+      const view=$('solution-view');view.replaceChildren();let guideView=null;
+      if(data.tutorial?.guide?.version===2)guideView=renderGuidedTutorial(view,data.tutorial,state.current);
+      else {const head=el('div','section-heading');head.append(el('h2','','参考题解'),el('span','muted','Python 3 · ACM'));view.append(head);
       if(data.tutorial?.sections?.length){
         view.append(el('p','tutorial-approach',data.tutorial.approach),el('p','tutorial-note','建议先读推导并手算例子，再看完整代码。复杂度按本题定义计算，输入、输出和算法辅助空间分别说明。'));
-        data.tutorial.sections.forEach(section=>{const block=el('section','tutorial-section');block.append(el('h3','',section.title),el('p','tutorial-text',section.text));view.append(block);});
-      }else view.append(el('div','solution-explanation',data.explanation));
-      view.append(el('h3','tutorial-code-heading','完整 Python ACM 代码'));
+        tutorialSections(view,data.tutorial.sections);
+      }else view.append(el('div','solution-explanation',data.explanation));}
+      const codeHeading=el('h3','tutorial-code-heading','完整 Python ACM 代码');codeHeading.tabIndex=-1;view.append(codeHeading);if(guideView)guideView.jump('查看代码',codeHeading);
       const code=el('pre','solution-code',data.solution);view.append(code);const actions=el('div','solution-actions');const copy=el('button','secondary-button');copy.append(icon('copy'),document.createTextNode('复制代码'));copy.onclick=()=>copyText(data.solution);
       const apply=el('button','secondary-button','放入编辑器');apply.onclick=()=>{if(!canEdit(id))return;if(!confirm('用参考解法替换当前代码？当前代码将被覆盖。'))return;setCode(data.solution);codeChanged();toast('参考解法已放入编辑器');};actions.append(copy,apply);view.append(actions);
     }catch(err){if(state.current?.id===id)$('solution-view').replaceChildren(errorView(err,()=>loadSolution(id)));}

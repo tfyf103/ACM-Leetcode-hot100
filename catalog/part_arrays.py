@@ -432,7 +432,8 @@ _add(53, "最大子数组和", "maximum-subarray", "Medium", "普通数组",
          data = list(map(int, sys.stdin.buffer.read().split()))
          a = data[1:1+data[0]]
          ending = answer = a[0]
-         for x in a[1:]:
+         for i in range(1, len(a)):
+             x = a[i]
              ending = max(x, ending+x)
              answer = max(answer, ending)
          print(answer)

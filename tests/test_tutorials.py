@@ -1,5 +1,6 @@
 """Check tutorial coverage and independently challenge optimized algorithms."""
 import contextlib
+import copy
 import io
 import itertools
 import json
@@ -9,6 +10,7 @@ import unittest
 from unittest.mock import patch
 
 import catalog
+from catalog.guide_schema import validate_guides
 
 SOURCES = json.loads((Path(catalog.__file__).parent / 'optimal_solutions.json').read_text(encoding='utf-8'))
 
@@ -27,6 +29,32 @@ def run(namespace, text):
 
 
 class TutorialTests(unittest.TestCase):
+    def test_guided_lessons_cover_every_problem_and_have_diverse_content(self):
+        guides = {str(p['id']): p['tutorial']['guide'] for p in catalog.PROBLEMS}
+        validate_guides(guides, catalog.BY_ID)
+        self.assertEqual(len(guides), 100)
+        for field in ('hook', 'goal'):
+            self.assertEqual(len({g[field] for g in guides.values()}), 100)
+        self.assertGreaterEqual(len({g['recall']['mnemonic'] for g in guides.values()}), 80)
+
+    def test_builder_matches_the_shipped_fixed_guides(self):
+        folder = Path(catalog.__file__).parents[1] / 'tools/guide_notes'
+        guides = {}
+        for path in folder.glob('*.json'):
+            entries = json.loads(path.read_text(encoding='utf-8'))
+            self.assertFalse(set(guides) & set(entries))
+            guides.update(entries)
+        fixed = json.loads((Path(catalog.__file__).parent / 'guides.json').read_text(encoding='utf-8'))
+        self.assertEqual(guides, fixed)
+
+    def test_guide_validation_rejects_missing_lessons_and_broken_tables(self):
+        guide = copy.deepcopy(catalog.BY_ID[1]['tutorial']['guide'])
+        with self.assertRaises(ValueError):
+            validate_guides({'1': guide}, {'1','2'})
+        guide['walkthrough']['rows'][0].append('unexpected extra cell')
+        with self.assertRaises(ValueError):
+            validate_guides({'1': guide}, {'1'})
+
     def test_complete_problem_specific_tutorials_match_shipped_solutions(self):
         for problem in catalog.PROBLEMS:
             with self.subTest(id=problem['id']):
