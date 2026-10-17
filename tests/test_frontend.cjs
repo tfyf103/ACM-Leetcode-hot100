@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const assert = require('node:assert/strict');
 const sourcePath = process.argv[2] || require('node:path').join(__dirname, '../static/app.js');
-const source = fs.readFileSync(sourcePath, 'utf8').replace('  bootstrap();', '  globalThis.testApi={state,openProblem,renderDescription,renderCases,renderList,loadSolution,loadSubmissions,codeChanged,flushSave,execute,bootstrap};');
+const source = fs.readFileSync(sourcePath, 'utf8').replace('  bootstrap();', '  globalThis.testApi={state,openProblem,renderDescription,renderCases,loadSolution,loadSubmissions,codeChanged,flushSave,execute,bootstrap};');
 
 function deferred() { let resolve,reject; const promise=new Promise((a,b)=>{resolve=a;reject=b;});return {promise,resolve,reject}; }
 function setup({storedValues={},hash=''}={}) {
@@ -25,71 +25,28 @@ function setup({storedValues={},hash=''}={}) {
   vm.createContext(context);vm.runInContext(source,context);
   const problem=id=>({id,title:'Problem '+id,starter:'starter '+id,examples:[{input:'sample '+id,output:'answer'}],constraints:[],category:'array',difficulty:'Easy',slug:'p'+id});
   const {state}=context.testApi;state.problems=[problem(1),problem(2),problem(3)];state.current=state.problems[0];state.progress={1:{code:'old code'}};state.loading=false;get('code').value='old code';
-  return {api:context.testApi,nodes,get,calls,stored,problem,context,setHandler:h=>handler=h};
+  return {api:context.testApi,nodes,get,calls,stored,problem,setHandler:h=>handler=h};
 }
 const tests=[];const test=(name,fn)=>tests.push([name,fn]);
-function ioCatalog(harness){
-  return [10001,10002].map((id,index)=>Object.assign(harness.problem(id),{display_id:'IO-'+String(index+1).padStart(2,'0'),track:'acm_io',category:'ACM 输入输出基础',title:index?'读到 EOF':'单组整数求和'})).concat(harness.problem(1));
-}
-function serveCatalog(harness,catalog,progress={}){
-  harness.api.state.current=null;harness.api.state.loading=true;
-  harness.setHandler(path=>path==='/api/bootstrap'?{problems:catalog,progress,token:'test',python_version:'3.13'}:catalog.find(p=>path==='/api/problems/'+p.id)||{});
-}
-
-test('fresh startup uses the first available exercise and preserves server topic order',async()=>{
-  const harness=setup(),catalog=ioCatalog(harness);serveCatalog(harness,catalog);await harness.api.bootstrap();const {api,get}=harness;
-  assert.equal(api.state.current.id,10001);assert.equal(get('home').href,'#10001');
-  assert.deepEqual(get('category-filter').children.map(n=>n.value),['ACM 输入输出基础','array']);
-  assert.deepEqual(get('problem-list').querySelectorAll('.list-category').map(n=>n.textContent),['ACM 输入输出基础','array']);
-  assert.deepEqual(get('problem-list').querySelectorAll('.problem-id').map(n=>n.textContent),['IO-01.','IO-02.','1.']);
-  assert.equal(get('total-count').textContent,3);assert.equal(get('filtered-count').textContent,'3 道题目');
+test('retired exercise links and saved history fall back to Hot100 without changing notes',async()=>{
+  for(const options of [{hash:'#10008'},{storedValues:{'last-problem':10001}}]){
+    const {api,get,setHandler,calls}=setup(options),catalog=api.state.problems,old={code:'my solution',notes:'my notes',favorite:true,status:'solved'};
+    api.state.current=null;
+    setHandler(path=>path==='/api/bootstrap'?{problems:catalog,progress:{1:{...old}},token:'test',python_version:'3.13'}:catalog.find(p=>path==='/api/problems/'+p.id)||{});
+    await api.bootstrap();
+    assert.equal(api.state.current.id,1);assert.equal(get('code').value,old.code);assert.equal(get('notes').value,old.notes);
+    assert.deepEqual(api.state.progress[1],old);assert.equal(calls.some(c=>c.path.includes('/1000')||c.path==='/api/progress'),false);
+  }
 });
-
-test('stored Hot 100 problem and its progress remain intact after inserting IO exercises',async()=>{
-  const harness=setup({storedValues:{'last-problem':1}}),catalog=ioCatalog(harness),old={code:'my old solution',notes:'my notes',favorite:true,status:'solved'};
-  serveCatalog(harness,catalog,{1:{...old}});await harness.api.bootstrap();
-  assert.equal(harness.api.state.current.id,1);assert.equal(harness.get('code').value,old.code);assert.equal(harness.get('notes').value,old.notes);
-  assert.deepEqual(harness.api.state.progress[1],old);assert.equal(harness.calls.some(c=>c.path==='/api/progress'),false);
-});
-
-test('explicit problem links take priority over stored history and use numeric API IDs',async()=>{
-  const harness=setup({storedValues:{'last-problem':1},hash:'#10002'}),catalog=ioCatalog(harness);serveCatalog(harness,catalog);await harness.api.bootstrap();
-  assert.equal(harness.api.state.current.id,10002);assert.ok(harness.calls.some(c=>c.path==='/api/problems/10002'));
-  assert.equal(harness.calls.some(c=>c.path.includes('IO-02')),false);
-});
-
-test('unsaved Hot 100 and IO drafts restore and save through their original numeric IDs',async()=>{
-  const drafts={1:{problem_id:1,code:'restored Hot 100 draft',notes:'old draft note'},10001:{problem_id:10001,code:'restored IO draft'}};
-  const harness=setup({storedValues:{'unsaved-drafts':drafts}}),catalog=ioCatalog(harness);serveCatalog(harness,catalog,{1:{status:'solved'}});await harness.api.bootstrap();await harness.api.state.saves;
-  assert.equal(harness.get('code').value,drafts[10001].code);assert.equal(harness.api.state.progress[1].code,drafts[1].code);assert.equal(harness.api.state.progress[1].status,'solved');
-  assert.deepEqual(harness.calls.filter(c=>c.path==='/api/progress').map(c=>c.body.problem_id).sort((a,b)=>a-b),[1,10001]);
-  assert.deepEqual(JSON.parse(harness.stored.get('acm-hot100:unsaved-drafts')),{});
-});
-
-test('unknown saved IDs and the home button resolve to the first available catalog item',async()=>{
-  const harness=setup({storedValues:{'last-problem':99999}}),catalog=[harness.problem(9),harness.problem(1)];serveCatalog(harness,catalog);await harness.api.bootstrap();
-  assert.equal(harness.api.state.current.id,9);await harness.api.openProblem(1);let prevented=false;
-  harness.get('home').onclick({preventDefault(){prevented=true;}});await Promise.resolve();await Promise.resolve();
-  assert.ok(prevented);assert.equal(harness.api.state.current.id,9);assert.equal(harness.get('home').href,'#9');
-});
-
-test('IO display IDs appear in descriptions, tutorials, page titles and downloaded filenames',async()=>{
-  const harness=setup(),catalog=ioCatalog(harness);serveCatalog(harness,catalog);await harness.api.bootstrap();
-  assert.equal(harness.get('description-view').querySelectorAll('.problem-title')[0].textContent,'IO-01. 单组整数求和');
-  assert.equal(harness.context.document.title,'IO-01. 单组整数求和 · ACM Hot 100');
-  assert.equal(harness.get('description-view').querySelectorAll('.io-format-notice').length,1);
-  harness.setHandler(()=>guidedPayload());await harness.api.loadSolution(10001);
-  assert.equal(harness.get('solution-view').querySelectorAll('.guide-title')[0].textContent,'IO-01. 单组整数求和');
-  assert.equal(harness.get('solution-view').querySelectorAll('.guide-skeleton-heading')[0].textContent,'输入输出记忆骨架（先按协议还原）');
-  harness.get('download-code').onclick();assert.equal(harness.context.document.body.children.at(-1).download,'IO-01_p10001.py');
-  harness.setHandler(path=>catalog.find(p=>path==='/api/problems/'+p.id)||{});await harness.api.openProblem(1);assert.equal(harness.get('description-view').querySelectorAll('.io-format-notice').length,0);
-});
-
-test('IO exercises can be searched by display ID, numeric ID or title without renumbering progress',()=>{
-  const harness=setup();harness.api.state.problems=ioCatalog(harness);
-  ['io-01','10001','单组整数'].forEach(query=>{harness.get('problem-search').value=query;harness.api.renderList();const rows=harness.get('problem-list').querySelectorAll('.problem-item');assert.equal(rows.length,1);assert.equal(rows[0].title,'IO-01. 单组整数求和');});
-  harness.get('category-filter').value='ACM 输入输出基础';harness.get('problem-search').value='';harness.api.renderList();assert.equal(harness.get('filtered-count').textContent,'2 道题目');
-  assert.equal(harness.api.state.progress['IO-01'],undefined);assert.ok(harness.api.state.progress[10001]);
+test('Hot100 unsaved drafts restore while retired drafts remain archived',async()=>{
+  const drafts={1:{problem_id:1,code:'restored draft',notes:'restored note'},10008:{problem_id:10008,code:'archived draft'}};
+  const {api,get,setHandler,calls,stored}=setup({storedValues:{'unsaved-drafts':drafts}}),catalog=api.state.problems;
+  api.state.current=null;
+  setHandler(path=>path==='/api/bootstrap'?{problems:catalog,progress:{1:{status:'solved'}},token:'test',python_version:'3.13'}:catalog.find(p=>path==='/api/problems/'+p.id)||{});
+  await api.bootstrap();await api.state.saves;
+  assert.equal(get('code').value,drafts[1].code);assert.equal(get('notes').value,drafts[1].notes);assert.equal(api.state.progress[1].status,'solved');
+  assert.deepEqual(calls.filter(c=>c.path==='/api/progress').map(c=>c.body.problem_id),[1]);
+  assert.deepEqual(JSON.parse(stored.get('acm-hot100:unsaved-drafts')), {10008:drafts[10008]});
 });
 function guidedPayload(){
   return {solution:'print(1)',explanation:'legacy explanation',tutorial:{approach:'Hash table',sections:[{title:'Proof',text:'Detailed proof'}],guide:{

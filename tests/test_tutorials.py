@@ -30,8 +30,8 @@ def run(namespace, text):
 
 class TutorialTests(unittest.TestCase):
     def test_guided_lessons_cover_every_problem_and_have_diverse_content(self):
-        guides = {str(pid): catalog.BY_ID[pid]['tutorial']['guide'] for pid in catalog.HOT100_ORDER}
-        validate_guides(guides, catalog.HOT100_ORDER)
+        guides = {str(p['id']): p['tutorial']['guide'] for p in catalog.PROBLEMS}
+        validate_guides(guides, catalog.BY_ID)
         self.assertEqual(len(guides), 100)
         for field in ('hook', 'goal'):
             self.assertEqual(len({g[field] for g in guides.values()}), 100)

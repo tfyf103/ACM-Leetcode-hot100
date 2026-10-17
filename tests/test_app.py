@@ -307,6 +307,37 @@ class HttpTests(unittest.TestCase):
             finally:
                 restored.store.close()
 
+    def test_retired_practice_records_remain_restorable_without_reopening_exercises(self):
+        store = self.server.application.store
+        store.save_progress(1, {"code": "Hot100 draft", "notes": "原有笔记"})
+        for pid in app.RETIRED_PROBLEM_IDS:
+            store.save_progress(pid, {"code": "archived draft %s" % pid})
+        store.save_submission(10008, "archived submitted code", {
+            "status": "Accepted", "passed": 3, "total": 3, "elapsed_ms": 0.1,
+        })
+        backup = self.request("GET", "/api/export")[2]
+        self.assertEqual(len(backup["progress"]), 13)
+        for _ in range(2):
+            self.assertEqual(self.request("POST", "/api/import", backup)[0], 200)
+        self.assertEqual(self.request("GET", "/api/export")[2], backup)
+        with tempfile.TemporaryDirectory() as folder:
+            restored = app.Application(folder, [PROBLEM], {})
+            try:
+                restored.store.merge(*restored.validate_backup(backup))
+                self.assertEqual(restored.store.progress(), backup["progress"])
+                self.assertEqual(restored.store.submissions()[0]["code"], "archived submitted code")
+            finally:
+                restored.store.close()
+        self.assertEqual([p["id"] for p in self.request("GET", "/api/bootstrap")[2]["problems"]], [1])
+        for suffix in ("", "/solution", "/submissions"):
+            self.assertEqual(self.request("GET", "/api/problems/10008" + suffix)[0], 404)
+        for path in ("/api/progress", "/api/run", "/api/submit"):
+            self.assertEqual(self.request("POST", path, {"problem_id": 10008, "code": "print(1)"})[0], 404)
+        invalid = copy.deepcopy(backup)
+        invalid["progress"]["10008"]["favorite"] = 1
+        self.assertEqual(self.request("POST", "/api/import", invalid)[0], 400)
+        self.assertEqual(self.request("GET", "/api/export")[2], backup)
+
     def test_export_reports_backups_that_cannot_be_imported(self):
         with patch.object(app, "MAX_BACKUP", 1):
             self.assertEqual(self.request("GET", "/api/export")[0], 413)

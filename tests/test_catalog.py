@@ -2,13 +2,30 @@
 
 import itertools
 import io
+import importlib.util
+from pathlib import Path
 import unittest
+from unittest.mock import patch
 
 from catalog import BY_ID
 import judge
 
 
 class CatalogRuntimeTests(unittest.TestCase):
+    def test_verifier_preserves_original_stdin_bytes(self):
+        path = Path(__file__).parents[1] / "tools/verify_catalog.py"
+        spec = importlib.util.spec_from_file_location("catalog_verifier", path)
+        verifier = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(verifier)
+        problem = dict(BY_ID[1], examples=[], compare="tokens",
+                       solution="import sys; print(sys.stdin.buffer.read().hex())",
+                       tests=[{"input": text, "output": text.encode("utf-8").hex() + "\n"}
+                              for text in ("a\r\n\r\nb", "你好\n\nb\n")])
+        with patch.object(verifier, "schema_errors", return_value=[]):
+            executed, errors = verifier.verify_problem(problem, None, 3)
+        self.assertEqual(executed, 2)
+        self.assertEqual(errors, [])
+
     def run_reference(self, problem_id, stdin):
         problem = BY_ID[problem_id]
         result = judge.execute(problem["solution"], stdin,

@@ -41,7 +41,6 @@
   if (!unsavedDrafts || typeof unsavedDrafts !== 'object' || Array.isArray(unsavedDrafts)) unsavedDrafts = {};
 
   function el(tag, className, text) {const node=document.createElement(tag); if(className) node.className=className; if(text!==undefined) node.textContent=text; return node;}
-  function problemLabel(problem) {return problem.display_id || problem.id;}
   function icon(name) {const n=el('span');n.innerHTML=svg(name);return n;}
   function toast(message) {clearTimeout(toastTimeout);$('toast').textContent=message;$('toast').hidden=false;toastTimeout=setTimeout(()=>{$('toast').hidden=true;},4000);}
   function empty(message, detail='') {const node=el('div','empty-state');node.append(el('p','',message));if(detail)node.append(el('small','',detail));return node;}
@@ -110,11 +109,10 @@
 
   function renderDescription(problem) {
     const view=$('description-view');view.replaceChildren();
-    const titleRow=el('div','problem-title-row');titleRow.append(el('h1','problem-title',problemLabel(problem)+'. '+problem.title));
+    const titleRow=el('div','problem-title-row');titleRow.append(el('h1','problem-title',problem.id+'. '+problem.title));
     if(isSolved(progress(problem.id))){const badge=el('span','solved-badge');badge.append(document.createTextNode('已解答'),icon('check'));titleRow.append(badge);}view.append(titleRow);
     const tags=el('div','problem-tags');tags.append(el('span','tag difficulty-'+problem.difficulty,difficulty[problem.difficulty]||problem.difficulty),el('span','tag',problem.category),el('span','tag acm-tag','ACM 模式'));view.append(tags);
     view.append(el('p','description-text',problem.description));
-    if(problem.track==='acm_io')view.append(el('p','io-format-notice','本专题检查输出格式：空格、换行、标签和小数位须按要求。'));
     if(problem.clarifications?.length){const section=el('section','problem-section clarification-section');section.append(el('h3','','规则与边界'));const list=el('ul','constraints');problem.clarifications.forEach(rule=>list.append(el('li','',rule)));section.append(list);view.append(section);}
     const addSection=(title,text)=>{const section=el('section','problem-section');section.append(el('h3','',title),el('p','format-text',text));view.append(section);};
     addSection('输入格式',problem.input_format);addSection('输出格式',problem.output_format);
@@ -150,7 +148,7 @@
       if(cm)cm.clearHistory();renderDescription(problem);renderFavorite();renderCases();renderResult();
       const position=state.problems.findIndex(p=>p.id===id);$('problem-position').textContent=(position+1)+' / '+state.problems.length;
       $('previous').disabled=position===0;$('next').disabled=position===state.problems.length-1;
-      if(updateHash)history.replaceState(null,'','#'+id);store.set('last-problem',id);document.title=problemLabel(problem)+'. '+problem.title+' · ACM Hot 100';
+      if(updateHash)history.replaceState(null,'','#'+id);store.set('last-problem',id);document.title=problem.id+'. '+problem.title+' · ACM Hot 100';
       setEditorEnabled(true);updateSaveStatus();renderList();activateTab(state.tab);refreshEditor();document.querySelector('.problem-scroll').scrollTop=0;
     }catch(err){if(navigation!==state.navigation)return;state.loading=false;state.current=null;setEditorEnabled(false);$('description-view').replaceChildren(errorView(err,()=>openProblem(id)));activateTab('description');}
   }
@@ -174,7 +172,7 @@
     const reveal=(label,text,className)=>{
       const node=el('details',className);node.append(el('summary','',label),el('p','guide-copy',text));return node;
     };
-    const hero=el('header','guide-hero');hero.append(el('div','guide-eyebrow','从想法到写法 · 引导式题解'),el('h2','guide-title',problemLabel(problem)+'. '+problem.title),el('span','guide-pattern',tutorial.approach),el('p','guide-hook',guide.hook));
+    const hero=el('header','guide-hero');hero.append(el('div','guide-eyebrow','从想法到写法 · 引导式题解'),el('h2','guide-title',problem.id+'. '+problem.title),el('span','guide-pattern',tutorial.approach),el('p','guide-hook',guide.hook));
     const goal=el('p','guide-goal');goal.append(el('strong','','这一题学会什么'),document.createTextNode(guide.goal));hero.append(goal);view.append(hero);
     const memory=el('div','guide-memory-card');memory.append(el('span','guide-card-label','先带走一句口诀'),el('p','',guide.recall.mnemonic));view.append(memory);
     const metrics=el('div','guide-metrics');[['时间复杂度',guide.complexity.time],['空间复杂度',guide.complexity.space]].forEach(([label,value])=>{const card=el('div','guide-metric');card.append(el('span','guide-card-label',label),el('p','',value));metrics.append(card);});view.append(metrics);
@@ -198,7 +196,7 @@
 
     const invariant=section('04','记住这条规则，就不容易写错');invariant.classList.add('guide-invariant');invariant.append(el('p','guide-invariant-statement',guide.invariant.statement),el('p','guide-copy',guide.invariant.reason));view.append(invariant);
 
-    const recall=section('05','从口诀，还原写法','先遮住完整代码，试着按下面的顺序重新写出来。');recall.tabIndex=-1;recall.append(el('p','guide-recall-mnemonic',guide.recall.mnemonic));const steps=el('ol','guide-recall-steps');guide.recall.steps.forEach(item=>steps.append(el('li','',item)));recall.append(steps,el('h4','guide-skeleton-heading',problem.track==='acm_io'?'输入输出记忆骨架（先按协议还原）':'记忆骨架（省略输入输出与部分辅助函数）'),el('pre','guide-skeleton',guide.recall.skeleton));view.append(recall);
+    const recall=section('05','从口诀，还原写法','先遮住完整代码，试着按下面的顺序重新写出来。');recall.tabIndex=-1;recall.append(el('p','guide-recall-mnemonic',guide.recall.mnemonic));const steps=el('ol','guide-recall-steps');guide.recall.steps.forEach(item=>steps.append(el('li','',item)));recall.append(steps,el('h4','guide-skeleton-heading','记忆骨架（省略输入输出与部分辅助函数）'),el('pre','guide-skeleton',guide.recall.skeleton));view.append(recall);
 
     const selfCheck=section('06','合上题解，检验一下理解');guide.self_check.forEach((item,index)=>{const card=el('div','guide-self-check');card.append(el('h4','',String(index+1)+'. '+item.question));const answer=reveal('查看参考回答',item.answer,'guide-answer');answers.push(answer);card.append(answer);selfCheck.append(card);});view.append(selfCheck);
     const complexity=section('07','为什么快，什么时候选它');complexity.append(el('p','guide-copy',guide.complexity.reason),el('p','guide-optimality',guide.complexity.optimality));view.append(complexity);
@@ -266,8 +264,8 @@
     try{
       const data=await api(submit?'/api/submit':'/api/run',submit?{problem_id:id,code}:{problem_id:id,code,stdin});state.results.set(id,{data,submit});
       if(submit){const p=progress(id);if(data.status==='Accepted')p.status='solved';else if(!isSolved(p))p.status='attempted';renderList();if(state.current?.id===id){renderDescription(state.current);if(state.tab==='submissions')loadSubmissions(id);}}
-      if(state.current?.id===id){renderResult();if(state.testTab!=='result')$('result-dot').hidden=false;}else toast(problemLabel(state.problems.find(p=>p.id===id)||{id})+' 题：'+(statusText[data.status]||data.status));
-    }catch(error){state.results.set(id,{error,submit});if(state.current?.id===id)renderResult();else toast(problemLabel(state.problems.find(p=>p.id===id)||{id})+' 题执行失败：'+error.message);}
+      if(state.current?.id===id){renderResult();if(state.testTab!=='result')$('result-dot').hidden=false;}else toast(id+' 题：'+(statusText[data.status]||data.status));
+    }catch(error){state.results.set(id,{error,submit});if(state.current?.id===id)renderResult();else toast(id+' 题执行失败：'+error.message);}
     finally{state.busy=false;button.innerHTML=previous;updateExecutionButtons();}
   }
 
@@ -275,18 +273,17 @@
     const solved=state.problems.filter(p=>isSolved(progress(p.id))).length;$('solved-count').textContent=solved;$('total-count').textContent=state.problems.length;$('progress-fill').style.width=(state.problems.length?solved/state.problems.length*100:0)+'%';
     $('difficulty-progress').replaceChildren();Object.keys(difficulty).forEach(d=>{const list=state.problems.filter(p=>p.difficulty===d),node=el('span','difficulty-'+d,difficulty[d]);node.append(el('b','',list.filter(p=>isSolved(progress(p.id))).length+'/'+list.length));$('difficulty-progress').append(node);});
     const q=$('problem-search').value.trim().toLowerCase(),category=$('category-filter').value,d=$('difficulty-filter').value,status=$('status-filter').value;
-    const filtered=state.problems.filter(p=>{const pr=progress(p.id);return(!q||(problemLabel(p)+' '+p.id+' '+p.title+' '+(p.slug||'')).toLowerCase().includes(q))&&(!category||p.category===category)&&(!d||p.difficulty===d)&&(!status||(status==='solved'?isSolved(pr):status==='attempted'?isAttempted(pr):status==='favorite'?pr.favorite:!isSolved(pr)&&!isAttempted(pr)));});
+    const filtered=state.problems.filter(p=>{const pr=progress(p.id);return(!q||(p.id+' '+p.title+' '+p.slug).toLowerCase().includes(q))&&(!category||p.category===category)&&(!d||p.difficulty===d)&&(!status||(status==='solved'?isSolved(pr):status==='attempted'?isAttempted(pr):status==='favorite'?pr.favorite:!isSolved(pr)&&!isAttempted(pr)));});
     $('filtered-count').textContent=filtered.length+' 道题目';const list=$('problem-list');list.replaceChildren();let lastCategory='';
     if(!filtered.length){list.append(empty('没有找到匹配的题目','试试其他关键词或筛选条件。'));return;}
     filtered.forEach(p=>{if(p.category!==lastCategory){list.append(el('div','list-category',p.category));lastCategory=p.category;}
-      const pr=progress(p.id),row=el('button','problem-item'+(state.current?.id===p.id?' current':''));row.title=problemLabel(p)+'. '+p.title;const solved=isSolved(pr),attempted=isAttempted(pr),status=el('span','list-status'+(solved?' solved':attempted?' attempted':''));status.innerHTML=svg(solved?'check':attempted?'attempt':'circle');
-      const name=el('span','problem-name');name.append(el('span','problem-id',problemLabel(p)+'.'),document.createTextNode(p.title));row.append(status,name);if(pr.favorite)row.append(el('span','list-star','★'));row.append(el('span','difficulty-label difficulty-'+p.difficulty,difficulty[p.difficulty]||p.difficulty));row.onclick=()=>openProblem(p.id);list.append(row);
+      const pr=progress(p.id),row=el('button','problem-item'+(state.current?.id===p.id?' current':''));row.title=p.id+'. '+p.title;const solved=isSolved(pr),attempted=isAttempted(pr),status=el('span','list-status'+(solved?' solved':attempted?' attempted':''));status.innerHTML=svg(solved?'check':attempted?'attempt':'circle');
+      const name=el('span','problem-name');name.append(el('span','problem-id',p.id+'.'),document.createTextNode(p.title));row.append(status,name);if(pr.favorite)row.append(el('span','list-star','★'));row.append(el('span','difficulty-label difficulty-'+p.difficulty,difficulty[p.difficulty]||p.difficulty));row.onclick=()=>openProblem(p.id);list.append(row);
     });
   }
   function openDrawer(){drawerFocus=document.activeElement;$('drawer-backdrop').hidden=false;$('problem-drawer').classList.add('open');$('problem-drawer').removeAttribute('inert');$('problem-drawer').setAttribute('aria-hidden','false');$('list-toggle').setAttribute('aria-expanded','true');$('problem-search').focus();}
   function closeDrawer(){const wasOpen=$('problem-drawer').classList.contains('open');$('drawer-backdrop').hidden=true;$('problem-drawer').classList.remove('open');$('problem-drawer').setAttribute('inert','');$('problem-drawer').setAttribute('aria-hidden','true');$('list-toggle').setAttribute('aria-expanded','false');if(wasOpen&&drawerFocus?.isConnected)drawerFocus.focus();}
   $('list-toggle').onclick=()=>openDrawer();$('close-list').onclick=closeDrawer;$('drawer-backdrop').onclick=closeDrawer;
-  $('home').onclick=event=>{event.preventDefault();if(state.problems.length)openProblem(state.problems[0].id);};
   $('previous').onclick=()=>navigate(-1);$('next').onclick=()=>navigate(1);
   ['problem-search','category-filter','difficulty-filter','status-filter'].forEach(id=>$(id).addEventListener(id==='problem-search'?'input':'change',renderList));
   document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>activateTab(b.dataset.tab));document.querySelectorAll('[data-test-tab]').forEach(b=>b.onclick=()=>activateTestTab(b.dataset.testTab));
@@ -296,7 +293,7 @@
   $('run').onclick=()=>execute(false);$('submit').onclick=()=>execute(true);
   $('reset-code').onclick=()=>{if(!canEdit()||!confirm('恢复初始代码？当前编辑器中的代码将被覆盖。'))return;setCode(state.current.starter||'');codeChanged();toast('已恢复初始代码');};
   function download(name,content,type){const blob=new Blob([content],{type}),url=URL.createObjectURL(blob),link=el('a');link.href=url;link.download=name;document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);}
-  $('download-code').onclick=()=>{if(state.current)download(problemLabel(state.current)+'_'+(state.current.slug||'solution')+'.py',getCode(),'text/x-python;charset=utf-8');};
+  $('download-code').onclick=()=>{if(state.current)download(state.current.id+'_'+(state.current.slug||'solution')+'.py',getCode(),'text/x-python;charset=utf-8');};
   async function copyText(text){try{await navigator.clipboard.writeText(text);toast('已复制代码');}catch(_){const t=el('textarea');t.value=text;t.style.cssText='position:fixed;left:-9999px';document.body.append(t);t.select();const ok=document.execCommand('copy');t.remove();toast(ok?'已复制代码':'复制失败，请手动选择代码复制');}}
   function setFont(size){state.fontSize=Math.max(11,Math.min(22,size));document.documentElement.style.setProperty('--code-size',state.fontSize+'px');store.set('font-size',state.fontSize);$('font-decrease').disabled=state.fontSize<=11;$('font-increase').disabled=state.fontSize>=22;refreshEditor();}
   setFont(Number(store.get('font-size',14))||14);$('font-decrease').onclick=()=>setFont(state.fontSize-1);$('font-increase').onclick=()=>setFont(state.fontSize+1);
@@ -377,11 +374,10 @@
     try{
       const data=await api('/api/bootstrap');state.problems=data.problems||[];state.progress=data.progress||{};state.token=data.token;
       if(!state.problems.length)throw new Error('题库为空，请检查 catalog 目录。');
-      $('home').href='#'+state.problems[0].id;
       Object.entries(unsavedDrafts).forEach(([id,draft])=>{if(!state.problems.some(p=>p.id===Number(id)))return;const pr=progress(id);['code','notes','favorite'].forEach(k=>{if(draft[k]!==undefined)pr[k]=draft[k];});state.revisions[id]=1;flushSave(Number(id));});
       $('python-version').textContent='Python '+data.python_version;$('help-runtime').textContent='Python '+data.python_version;
       const categories=[...new Set(state.problems.map(p=>p.category))];categories.forEach(c=>{const option=el('option','',c);option.value=c;$('category-filter').append(option);});renderList();
-      const initial=Number(location.hash.slice(1))||Number(store.get('last-problem'))||state.problems[0].id;await openProblem(initial);
+      const initial=Number(location.hash.slice(1))||Number(store.get('last-problem',1))||1;await openProblem(initial);
     }catch(error){const view=$('description-view');view.replaceChildren(errorView(new Error('无法连接本地题库。\n'+error.message),()=>location.reload()));state.loading=false;setEditorEnabled(false);toast('加载失败，请检查本地服务是否已启动');}
   }
   bootstrap();

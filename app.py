@@ -31,6 +31,8 @@ MAX_STDIN = 4 * 1024 * 1024
 MAX_BODY = 8 * 1024 * 1024
 MAX_BACKUP = 32 * 1024 * 1024
 MAX_IMPORT_SUBMISSIONS = 100000
+# Preserve archived practice records in backups without exposing retired exercises.
+RETIRED_PROBLEM_IDS = frozenset(range(10001, 10013))
 SUBMISSION_STATUSES = {
     "Accepted", "Wrong Answer", "Runtime Error", "Time Limit Exceeded",
     "Output Limit Exceeded",
@@ -242,7 +244,8 @@ class Application:
         if type(data.get("version")) is not int or data.get("version") != 1:
             raise ApiError("不支持的备份版本")
         progress, submissions = data.get("progress"), data.get("submissions")
-        if not isinstance(progress, dict) or len(progress) > len(self.problems):
+        backup_ids = set(self.problems) | RETIRED_PROBLEM_IDS
+        if not isinstance(progress, dict) or len(progress) > len(backup_ids):
             raise ApiError("备份进度格式或数量无效")
         if not isinstance(submissions, list) or len(submissions) > MAX_IMPORT_SUBMISSIONS:
             raise ApiError("备份提交记录格式无效或超过 %s 条" % MAX_IMPORT_SUBMISSIONS)
@@ -251,7 +254,8 @@ class Application:
             if not isinstance(key, str) or len(key) > 9 or not key.isascii() or not key.isdecimal() or \
                     str(int(key)) != key or not isinstance(entry, dict):
                 raise ApiError("备份题目编号无效")
-            self.problem(int(key))
+            if int(key) not in backup_ids:
+                raise ApiError("题目不存在", 404)
             if not isinstance(entry.get("status"), str) or entry["status"] not in PROGRESS_STATUSES:
                 raise ApiError("备份进度状态无效")
             if type(entry.get("favorite")) is not bool:
@@ -268,7 +272,9 @@ class Application:
             if not isinstance(entry, dict):
                 raise ApiError("备份提交记录无效")
             problem_id = entry.get("problem_id")
-            self.problem(problem_id)
+            integer(problem_id, "problem_id", 1)
+            if problem_id not in backup_ids:
+                raise ApiError("题目不存在", 404)
             if not isinstance(entry.get("status"), str) or entry["status"] not in SUBMISSION_STATUSES:
                 raise ApiError("备份判题状态无效")
             total = integer(entry.get("total"), "total", 1, 10000)

@@ -24,14 +24,10 @@ HOT100_ORDER = (
     279, 322, 139, 300, 152, 416, 32, 62, 64, 5, 1143, 72, 136, 169, 75, 31, 287,
 )
 _ORDER_INDEX = {problem_id: index for index, problem_id in enumerate(HOT100_ORDER)}
-IO_ORDER = tuple(range(10001, 10013))
-_IO_ORDER_INDEX = {problem_id: index for index, problem_id in enumerate(IO_ORDER)}
 
 
 def order_key(problem):
-    if problem["id"] in _IO_ORDER_INDEX:
-        return (0, _IO_ORDER_INDEX[problem["id"]], problem["id"])
-    return (1, _ORDER_INDEX.get(problem["id"], len(HOT100_ORDER)), problem["id"])
+    return (_ORDER_INDEX.get(problem["id"], len(HOT100_ORDER)), problem["id"])
 
 
 from .enrichment import apply_enrichment
@@ -45,7 +41,7 @@ if len(BY_ID) != len(PROBLEMS):
 PUBLIC_FIELDS = (
     "id", "title", "slug", "difficulty", "category", "description",
     "input_format", "output_format", "constraints", "examples", "starter",
-    "explanation", "compare", "clarifications", "display_id", "track",
+    "explanation", "compare", "clarifications",
 )
 
 
@@ -59,6 +55,5 @@ def public_problem(problem):
 def summary(problem):
     result = {key: problem[key] for key in
               ("id", "title", "slug", "difficulty", "category")}
-    result.update({key: problem[key] for key in ("display_id", "track") if key in problem})
     result["test_count"] = len(problem["tests"])
     return result
